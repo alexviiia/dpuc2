@@ -5,7 +5,10 @@
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package ParsePfam;
-our $VERSION = 1.00;
+our $VERSION = 1.01;
+
+# 2015-07-21 18:00:17 EDT - v1.01
+# - Pfam 28 has empty NE (nesting) entries for Pfam-A.hmm.dat. This is either a bug or that information is being deprecated. I rewrote my parser to silently ignore this missing info (by parsing more strictly), resulting in a run without any nesting allowed.
 
 use lib '.';
 use FileGz;
@@ -32,7 +35,7 @@ sub dat {
     # open file, start reading
     my $fhi = FileGz::getInFh($fi);
     while (<$fhi>) {
-	if ( my ($type, $s) = /^\#=GF (\w+)\s+(.+)$/ ) { # things we're parsing for... many lines are not interesting
+	if ( my ($type, $s) = /^\#=GF (\w\w)   (.+)$/ ) { # things we're parsing for... many lines are not interesting. UPDATE: made parsing more rigid
 	    if ($type eq 'ID') { $name = $s; }
 	    elsif ($type eq 'AC') {
 		$acc = $s; # read new accession
