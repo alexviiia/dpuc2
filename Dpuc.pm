@@ -5,11 +5,10 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.00;
+our $VERSION = 2.01;
 use lib '.';
 use Domains;
 use Codd;
-use ParsePfam;
 use DpucPosElim;
 use DpucLpSolve;
 use DpucNetScores;
@@ -28,12 +27,9 @@ our $doNewHitRefs = 1; # may edit this outside to change behavior as desired
 
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-    my ($fi, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCut, $w, $fi2, $cCut2, $gamma) = @_;
+    my ($accs, $fi, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCut, $w, $fi2, $cCut2, $gamma) = @_;
     
-    die "Error: pfamDat wasn't loaded before acc2i!" unless defined $ParsePfam::acc2name;
-    my @accs = sort keys %$ParsePfam::acc2name; # sort accessions from global Pfam, not necessary but will be prettier if we have to debug
-    
-    my ($net, $acc2i, $netTs, $netTscores, $negSelfInt, $acc2cc) = DpucNetScores::loadNet(\@accs, $scoreScale, @_); # pass the same input here, plus this list of accs
+    my ($net, $acc2i, $netTs, $netTscores, $negSelfInt, $acc2cc) = DpucNetScores::loadNet($scoreScale, @_); # pass the same input here, plus this list of accs
     
     # copy perl structures into global and native C structures, should speed a few things up
     DpucPosElim::copyNetTscoresToC($netTs, $netTscores);
@@ -98,7 +94,11 @@ sub dpuc {
     my $hitsDpuc; # copy reference to previous solution when nonOvNeg is not redone
     
     # do pre-elimination step here, only once for all Ecuts, necessary for both posElim and nonOvNeg
-    ($hits, my $hit2passSeq) = preElim($hits, $acc2ds2t, $acc2ts, $removeOvsPRank, $removeOvsCodd, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net);
+    ($hits, my $hit2passSeq, my $errStr) = preElim($hits, $acc2ds2t, $acc2ts, $removeOvsPRank, $removeOvsCodd, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net);
+
+    # if there was an error, return with it immediately
+    return (undef, undef, undef, $errStr) if $errStr;
+    
     my ($overlapNet, $scoresNet); # compute once, remember later, undef at first is fine
     
     # navigate cuts.  Start with the least stringent cutoffs, so we can analyze progressively
@@ -136,7 +136,18 @@ sub dpuc {
 sub preElim {
     # this sub applies a few one-time-only processing steps to data
     my ($hits, $acc2ds2t, $acc2ts, $removeOvsPRank, $removeOvsCodd, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net) = @_;
-    
+
+    # first thing to do is map accs to integers, because this helps catch version mismatch errors (and we want to stop as soon as possible when that happens)
+    # we'd like to check before filters have been applied! (filters reduce the change that we'll catch the error sooner)
+    foreach my $h (@$hits) {
+	$h->{acci} = $acc2i->{$h->{acc}}; # create acci column, things that interact with C need it
+	# NOTE: now the %$acc2i map is only for valid nodes in network, so undefined values must be fatal!!!
+	unless (defined $h->{acci}) {
+	    my $errStr = "FATAL: domain family $h->{acc} was not part of context network!  The HMM DB version of the domain predictions and the dpucNet files probably differs.\n";
+	    return (undef, undef, $errStr); # return right away
+	}
+    }
+
     # if want to remove overlaps (using CODD and/or p-values), do it first!  Both also sort hits by start
     # note that if both options are set, only CODD is run!
     if ($removeOvsCodd) {
@@ -162,7 +173,6 @@ sub preElim {
 	my $td = $acc2ds2t->{$h->{acc}}{d}; # get domain threshold
 	$h->{td} = $td; # store threshold in hit as another column/key (needed by lp_solve unfortunately, when computing sequence threshold to un-normalize domain scores)
 	$h->{scoreNorm} = $h->{score} - $td; # compute and score normalized score too!
-	$h->{acci} = $acc2i->{$h->{acc}}; # create acci column, things that interact with C need it
     }
     
     # determine which sequence thresholds need to be evaluated, to try to save time

@@ -5,7 +5,12 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucNet;
-our $VERSION = 2.00;
+our $VERSION = 2.01;
+
+# 2015-06-05 10:08:49 EDT
+# v2.01 - changed output so now list of nodes is also explicitly given as the first line (to catch version mismatches, which are otherwise catastrophic for performance by turning unobserved context pairs into negative context pairs)
+# 2015-07-04 17:04:50 EDT
+# v2.01 still (haven't published) - parsing proteins removes version number (i.e. .1 in BLAH.1). For Pfam 28 memory usage exploded so this extra step is warranted.
 
 use lib '.';
 use FileGz;
@@ -26,6 +31,10 @@ sub makeNet {
     
     print "Saving context count network...\n" if $verbose;
     my $fho = FileGz::getOutFh($fo, $comp);
+    # first line is list of nodes!
+    # note PF prefix has to be added back before printing
+    print $fho join("\t", map { 'PF'.$_ } @$accs)."\n";
+    # add network edges
     while (my ($pair, $c) = each %$net) {
 	print $fho "$pair\t$c\n";
     }
@@ -55,7 +64,7 @@ sub getDomsPfamAFull {
 	    $acc = $1;
 	    push @accs, $acc; # add to list of unique accessions
 	}
-	elsif (/^\#=GS \w+\/(\d+)\-\d+ +AC (\w+)/) { # start,prot # note "end" not needed for order
+	elsif (/^\#=GS \w+\/(\d+)\-\d+ +AC (\w+)\.\d+/) { # start,prot # note "end" not needed for order
 	    $prot2hits{$2} .= $1.'-'.$acc.';'; # store as string, to reduce memory usage
 	}
     }

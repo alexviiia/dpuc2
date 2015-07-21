@@ -5,7 +5,11 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucNetScores;
-our $VERSION = 1.00;
+our $VERSION = 1.01;
+
+# 2015-06-05 10:52:14 EDT
+# v1.01 - script now parses files that start with list of nodes
+# will incrementaly adjust scripts to make proper use of this new info
 
 use lib '.';
 use FileGz;
@@ -15,15 +19,21 @@ use strict;
 # for Dpuc only
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-    my ($accs, $scoreScale, $fi, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCut, $w, $fi2, $cCut2, $gamma) = @_;
-    
-    # need to make sure this exists before processing nets (necessary for C code and to define $n for on-the-fly scores)
-    my $acc2i = array2hashmap($accs); # now make hash that maps each accession to its index, store as global!
-    my $n = @$accs; # counts2scores needs to know how many families there are!
+    my ($scoreScale, $accs, $fi, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCut, $w, $fi2, $cCut2, $gamma) = @_;
     
     # always load raw counts and compute scores on the fly!
-    my $net = loadContextCountsNet($fi, $cCut, $w, $fi2, $cCut2);
+    my ($net, $nodes) = loadContextCountsNet($fi, $cCut, $w, $fi2, $cCut2);
+    my $n = @$nodes; # counts2scores needs to know how many families there are!
+
+    # as soon as we can, let's compare the outside @$accs with @nodes hash/set, they should be same or die!
+    # this way, we catch a version mismatch as early as possible, though this is technically only between Pfam-A.hmm.dat and the dpucNet (input domain preds could be yet of a different version, so we'll be checking them again later as well.
+    die "Fatal: domain family sets disagree between input Pfam-A.hmm.dat and this dpucNet: $fi\nTheir Pfam versions probably disagree!\nNo output was generated\n" unless setIdentity($accs, $nodes);
+    
+    # construct scores given counts and other parameters
     $net = counts2scores($net, $n, $panning, $scaleExp, $alphaSelfToTrans, $gamma, $scaleContext, $shiftContext);
+    
+    # need to make sure this exists before processing nets (necessary for C code and to define $n for on-the-fly scores)
+    my $acc2i = set2hashmap($nodes); # now make hash that maps each accession to its index, store as global!
     
     # when doing posElim, scale scores to ints, turn into parallel arrays, store in C space (so fast code access it fast)
     
@@ -51,34 +61,60 @@ sub loadContextCountsNet {
     # assumes fi is defined, cCut doesn't need to be (means no filter)
     my ($fi, $cCut, $w, $fi2, $cCut2) = @_;
     
-    my $net1 = parseNet($fi, $cCut); # loads net and applies counts threshold
+    my ($net1, $nodes1) = parseNet($fi, $cCut); # loads net and applies counts threshold
     
-    unless ($w) { return $net1; } # if no blending was requested, return this first network!
-    else { # blend with second net
+    if ($w) { 
+	# blend with second net
 	# assume parameters are the same as for first if undefined
 	$fi2 = $fi unless $fi2;
 	$cCut2 = $cCut unless defined $cCut2; # but zero shouldn't be overwritten!!!  only undefined!
-	my $net2 = parseNet($fi2, $cCut2);
-	# now blend nets and return!
-	return blendNets([$net1, $net2], [$w, 1-$w]); # apply weight w to net1, (1-w) to net2
+	my ($net2, $nodes2) = parseNet($fi2, $cCut2);
+	# to blend, node lists should match (otherwise there's a version mismatch)
+	die "Error: network files have different node lists: $fi, $fi2\n" unless setIdentity($nodes1, $nodes2);
+	# blend nets
+	$net1 = blendNets([$net1, $net2], [$w, 1-$w]); # apply weight w to net1, (1-w) to net2
     }
+    
+    return ($net1, $nodes1);
 }
 
 ### functions only used internally
 
+sub setIdentity {
+    # returns true if sets are identical (unordered array values, or if hash: same keys; values are ignored), false otherwise
+    # this version assumes keys have no newlines, then comparison can be faster!
+    my ($s1, $s2) = @_;
+    $s1 = [keys %$s1] if 'HASH' eq ref $s1;
+    $s2 = [keys %$s2] if 'HASH' eq ref $s2;
+    # turn arrays into strings, such that strings are equal (assuming no newlines in keys) iff sets are equal.
+    $s1 = join "\n", sort @$s1;
+    $s2 = join "\n", sort @$s2;
+    return $s1 eq $s2; # this comparison gives the answer
+}
+
 sub parseNet {
-    my ($fi, $cut) = @_;
+    my ($fi, $cut, $noNodeList) = @_;
     # loads a net from file, with a threshold on edge values
+    # default is to assume file has a node list, but it's possible to say there isn't (for backward compatibility?)
     my $isCut = defined $cut; # default is no cut
     my %net;
+    my @nodes; # list of nodes which might be present in the file
     my $fhi = FileGz::getInFh($fi);
+    # first line is node list... (unless explicitly told otherwise)
+    unless ($noNodeList) {
+	# read one line, chomp
+	$_ = <$fhi>;
+	chomp;
+	# get list of nodes, split by tabs
+	@nodes = split /\t/;
+    }
     while (<$fhi>) {
 	chomp;
 	my ($acc1, $acc2, $value) = split /\t/;
 	$net{$acc1}{$acc2} = $value if !$isCut || $value >= $cut; # add only if cutoff is passed
     }
     close $fhi;
-    return \%net;
+    return (\%net, \@nodes); # return these two things
 }
 
 sub counts2scores {
@@ -301,14 +337,16 @@ sub blendNets {
     return \%net; # done, return desired net
 }
 
-sub array2hashmap {
-    # given an array (a header), make a hash that maps each key in the header to its index
-    # assumes keys are unique, otherwise you'll get the last index that key was observed in
-    my ($arr) = @_;
+sub set2hashmap {
+    # given a set, make a hash that maps each key to an index
+    # input can also be an array ref (order is preserved in that case)
+    # order is arbitrary here
+    my ($set) = @_;
     my %hash;
-    my $l = @$arr;
+    my @keys = 'HASH' eq ref $set ? keys %$set : @$set; # assume array ref if not hash ref
+    my $l = @keys;
     for (my $i = 0; $i < $l; $i++) {
-	$hash{$arr->[$i]} = $i;
+	$hash{$keys[$i]} = $i;
     }
     return \%hash;
 }

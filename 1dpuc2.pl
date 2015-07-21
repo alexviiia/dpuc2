@@ -54,8 +54,9 @@ my $comp = 'gzip';
 
 # get Pfam GA thresholds and nesting net
 ParsePfam::dat($fiPfamADat); # populates $ParsePfam::acc2ds2ga and $ParsePfam::nestingNet
+my @accs = keys %$ParsePfam::acc2name; # this helps check that dpucNet and pfamDat agree (they won't if versions are different)
 # this wrapper choses the right file, given the parameters, and does all necessary processing
-my $net = Dpuc::loadNet($fiCounts, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCutNet);
+my $net = Dpuc::loadNet(\@accs, $fiCounts, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCutNet);
 # get necessary sequence thresholds
 my $acc2ts = Dpuc::getPfamThresholdsSeq($ParsePfam::acc2ds2ga);
 
@@ -67,7 +68,12 @@ while ($protNext) {
     # read next protein
     (my $prot, my $hits, $protNext, $hitNext) = Hmmer3ScanTab::parseProt($fhi, $protNext, $hitNext);
     # apply Dpuc, overwriting hits
-    ($hits) = Dpuc::dpuc($hits, $net, $ParsePfam::nestingNet, $ParsePfam::acc2ds2ga, $acc2ts, $timeout, $cut, undef, $fCut, $lCut, $removeOvsPRank, $removeOvsCodd);
+    ($hits, undef, undef, my $errStr) = Dpuc::dpuc($hits, $net, $ParsePfam::nestingNet, $ParsePfam::acc2ds2ga, $acc2ts, $timeout, $cut, undef, $fCut, $lCut, $removeOvsPRank, $removeOvsCodd);
+    if ($errStr) {
+	print $fho $errStr; # include error message in output!
+	close $fho; # make sure file is closed correctly
+	die $errStr; # die with the same message for STDERR
+    }
     # print to output
     Hmmer3ScanTab::printProt($fho, $hits);
 }
