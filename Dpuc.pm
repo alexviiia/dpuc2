@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.01;
+our $VERSION = 2.02;
 use lib '.';
 use Domains;
 use Codd;
