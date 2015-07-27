@@ -45,7 +45,12 @@ gzip sample.txt
 
 Produce dPUC predictions with default parameters 
 ```
-perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt
+perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt 1e-4
+```
+
+Produce dPUC predictions for more than one p-value threshold for candiate domains (produces one output for each threshold)
+```
+perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt 1e-1 1e-4 1e-9
 ```
 
 More details
