@@ -1,12 +1,6 @@
 dPUC 2
 ===
 
-Domain Prediction Using Context.
-Extend your Pfam predictions without loss of precision using domain context!
-
-About dPUC 2
-===
-
 The dPUC (Domain Prediction Using Context) software improves domain prediction by considering every domain in the context of other domains, rather than independently as standard approaches do. Our specific framework maximized the probability of the data assuming a naive Bayes approximation, which reduces to a pairwise context problem, and we have shown that our probabilistic method is indeed more powerful than competing methods.
 
 The dPUC 2.xx series is a major update from dPUC 1.0. For the average user, what matters is that now dPUC works with HMMER 3 and Pfam 24 onward, and dPUC is much faster than before. If you were a dPUC 1.0 user, you should know that inputs and outputs are completely different; the new setup is simpler due to the changes that HMMER3 and the new Pfams have brought. Lastly, there are improvements in the context network parametrization, most notably the addition of directed context. See the release notes for more information.
@@ -18,7 +12,7 @@ You'll need Perl 5, the [Inline::C](http://search.cpan.org/~etj/Inline-C-0.62/li
 
 For the HMM database, you will need to download Pfam-A.hmm.gz and Pfam-A.hmm.dat.gz from [Pfam](ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/). Use HMMER3's hmmpress to prepare database for searching.
 
-Lastly, you may want to download a precomputed context network file, such as dpucNet.pfam27.txt.gz, from [viiia.org](http://viiia.org/dpuc2/?l=en-us). But code to recompute this file from Pfam is also provided (slow, not recommended).
+Lastly, download a precomputed context network file that corresponds with the Pfam version you want to use, such as dpucNet.pfam28.txt.gz, from the [dpuc2-data](https://github.com/alexviiia/dpuc2-data) repository. Code to recompute this file from Pfam is also provided (slow, not recommended).
 
 Synopsis of scripts
 ===
@@ -45,12 +39,12 @@ gzip sample.txt
 
 Produce dPUC predictions with default parameters 
 ```
-perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt 1e-4
+perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt 
 ```
 
 Produce dPUC predictions for more than one p-value threshold for candiate domains (produces one output for each threshold)
 ```
-perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt 1e-1 1e-4 1e-9
+perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt --pvalues 1e-1 1e-4 1e-9
 ```
 
 More details
