@@ -5,11 +5,25 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucNetScores;
-our $VERSION = 1.01;
+our $VERSION = 1.02;
 
 # 2015-06-05 10:52:14 EDT
 # v1.01 - script now parses files that start with list of nodes
 # will incrementaly adjust scripts to make proper use of this new info
+
+# 2015-08-05 13:37:44 EDT
+# v1.02 - added direct alpha setting for prior (rather than through scale)
+# - also obsoleted "net blending" option through dPUC (many simplifications!)
+# - minor loop change (avoids using "each") stops newer Perls from complaining about it
+# 2015-08-09 10:39:06 EDT
+# - same version (haven't posted): added "old" panning option, that behaves like the old dPUC used to (didn't match any panning weight construct)
+# 2015-08-11 20:18:41 EDT
+# - same version (haven't posted): added "old" scale option, that behaves like the old dPUC used to (setting scale as 1/n^2, regardless of actual scale achieved).
+# 2015-08-14 11:24:16 EDT
+# - same version (haven't posted): removed all self/trans distinction and parameter that controlled it. the code that handled negative self-context scores also went away.
+# - also removed panning option, added "oldMode" boolean that sets old panning and old scale at the same time.
+# - also removed gamma option, which probably doesn't make much sense, and would be a pain to benchmark. This drops an internal function completely!
+# - overall, cleaned internal counts2scores considerably!
 
 use lib '.';
 use FileGz;
@@ -19,10 +33,11 @@ use strict;
 # for Dpuc only
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-    my ($scoreScale, $accs, $fi, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCut, $w, $fi2, $cCut2, $gamma) = @_;
+    my ($scoreScale, $accs, $fi, $scaleExp, $scaleContext, $shiftContext, $cCut, $alphaExp, $oldMode) = @_;
     
     # always load raw counts and compute scores on the fly!
-    my ($net, $nodes) = loadContextCountsNet($fi, $cCut, $w, $fi2, $cCut2);
+    $cCut = undef if $oldMode; # old mode didn't have these things!!! Ensure cuts aren't used there!!!
+    my ($net, $nodes) = parseNet($fi, $cCut);
     my $n = @$nodes; # counts2scores needs to know how many families there are!
 
     # as soon as we can, let's compare the outside @$accs with @nodes hash/set, they should be same or die!
@@ -30,7 +45,7 @@ sub loadNet {
     die "Fatal: domain family sets disagree between input Pfam-A.hmm.dat and this dpucNet: $fi\nTheir Pfam versions probably disagree!\nNo output was generated\n" unless setIdentity($accs, $nodes);
     
     # construct scores given counts and other parameters
-    $net = counts2scores($net, $n, $panning, $scaleExp, $alphaSelfToTrans, $gamma, $scaleContext, $shiftContext);
+    $net = counts2scores($net, $n, $scaleExp, $scaleContext, $shiftContext, $alphaExp, $oldMode);
     
     # need to make sure this exists before processing nets (necessary for C code and to define $n for on-the-fly scores)
     my $acc2i = set2hashmap($nodes); # now make hash that maps each accession to its index, store as global!
@@ -44,52 +59,12 @@ sub loadNet {
     my ($netTs, $netTscores) = mapPfamNetAccs2ints($netScaleInt, $acc2i);
     
     # posElim needs a list of domains that carry context information, also gets stored in C space
-    # however, all domains have context (self context in particular) if the "countless self" score is positive
-    my $negSelfInt = $netScaleInt->{PFNEG}{SELF}; # get scaled version!
     # acc2cc is an hash ref that maps each acc to 1 if it is context carrying, undef otherwise
-    # note acc2cc contains PFNEG, SELF, and TRANS too, doesn't affect out analysis at all!
-    # if negative self contex is actually positive, make a map that makes every acc context-carrying
-    my $acc2cc = $negSelfInt > 0 ? {map { $_ => 1 } @$accs} : getNodes($net);
+    # note acc2cc contains NEG too, doesn't affect out analysis at all!
+    my $acc2cc = getNodes($net);
     
     # only nonOvNeg uses $net, return it (safe to ignore for posElim), also return the stuff needed for C structures (for posElim)
-    return ($net, $acc2i, $netTs, $netTscores, $negSelfInt, $acc2cc); # stuff that Dpuc2 needs, many for passing to C
-}
-
-# Dpuc and CODD
-sub loadContextCountsNet {
-    # loads and process counts network (does not apply scores).  This applies to CODD as well (which only uses the topology)
-    # assumes fi is defined, cCut doesn't need to be (means no filter)
-    my ($fi, $cCut, $w, $fi2, $cCut2) = @_;
-    
-    my ($net1, $nodes1) = parseNet($fi, $cCut); # loads net and applies counts threshold
-    
-    if ($w) { 
-	# blend with second net
-	# assume parameters are the same as for first if undefined
-	$fi2 = $fi unless $fi2;
-	$cCut2 = $cCut unless defined $cCut2; # but zero shouldn't be overwritten!!!  only undefined!
-	my ($net2, $nodes2) = parseNet($fi2, $cCut2);
-	# to blend, node lists should match (otherwise there's a version mismatch)
-	die "Error: network files have different node lists: $fi, $fi2\n" unless setIdentity($nodes1, $nodes2);
-	# blend nets
-	$net1 = blendNets([$net1, $net2], [$w, 1-$w]); # apply weight w to net1, (1-w) to net2
-    }
-    
-    return ($net1, $nodes1);
-}
-
-### functions only used internally
-
-sub setIdentity {
-    # returns true if sets are identical (unordered array values, or if hash: same keys; values are ignored), false otherwise
-    # this version assumes keys have no newlines, then comparison can be faster!
-    my ($s1, $s2) = @_;
-    $s1 = [keys %$s1] if 'HASH' eq ref $s1;
-    $s2 = [keys %$s2] if 'HASH' eq ref $s2;
-    # turn arrays into strings, such that strings are equal (assuming no newlines in keys) iff sets are equal.
-    $s1 = join "\n", sort @$s1;
-    $s2 = join "\n", sort @$s2;
-    return $s1 eq $s2; # this comparison gives the answer
+    return ($net, $acc2i, $netTs, $netTscores, $acc2cc); # stuff that Dpuc2 needs, many for passing to C
 }
 
 sub parseNet {
@@ -117,62 +92,54 @@ sub parseNet {
     return (\%net, \@nodes); # return these two things
 }
 
+
+### functions only used internally
+
+sub setIdentity {
+    # returns true if sets are identical (unordered array values, or if hash: same keys; values are ignored), false otherwise
+    # this version assumes keys have no newlines, then comparison can be faster!
+    my ($s1, $s2) = @_;
+    $s1 = [keys %$s1] if 'HASH' eq ref $s1;
+    $s2 = [keys %$s2] if 'HASH' eq ref $s2;
+    # turn arrays into strings, such that strings are equal (assuming no newlines in keys) iff sets are equal.
+    $s1 = join "\n", sort @$s1;
+    $s2 = join "\n", sort @$s2;
+    return $s1 eq $s2; # this comparison gives the answer
+}
+
 sub counts2scores {
     # copied and simplified from dpucNet04.counts2scores.pl, in order to generate one single net on the fly from a single set of counts
     # no combinatorics here like original script (which was left unchanged), and we dropped some useless features (notably clans map)
     # dropped intermediate panned counts net creation, made sense for combinatorics but not here!
     # on the other hand, made algorithms faster, which matters a lot more when doing things on the fly!
-    my ($acc2acc2c, $n, $panning, $scaleExp, $alphaSelfToTrans, $gamma, $scaleBits, $shiftBits) = @_; # input count structure and params
-    $acc2acc2c = expEdges($acc2acc2c, $gamma) if $gamma && $gamma != 1; # exponentiate edges if necessary (a gamma of zero/false wouldn't be allowed, but it can be used conveniently to mean "don't exponentiate".
+    my ($acc2acc2c, $n, $scaleExp, $scaleBits, $shiftBits, $alphaExp, $oldMode) = @_; # input count structure and params
     # get sum of counts from network, parameter independent!
     my $cTot = sumEdges($acc2acc2c);
-    
-    # part 1: panning counts
-    my $pan = $panning eq 'inf' ? 0 : (2**-$panning)/2; # get the regular parameter, without the log2 and also divided by two (so max panning is a factor of 1/2, NOT 1)
-    my $pan2 = 1-$pan; # the complement of the panning, used very often too
+    # add counts in both directions (except for diagonal) if we want "old" mode.
+    # Note: in old mode $cTot was as it is above (and it would be wrong to compute it after the transformation below)
+    $acc2acc2c = makeOldDpucCounts($acc2acc2c) if $oldMode;
     
     # part 2: score params
-    # deduce priors from their ratio and total sum... (math leading to these solutions not shown, but it's really easy!)
-    $alphaSelfToTrans = 2**$alphaSelfToTrans; # undo log2 scale!
-    my $scale = 2**-$scaleExp; # get actual scale from specified exponent
-    my $alphaTrans = $scale*$cTot/(($alphaSelfToTrans + $n-1)*$n);
-    my $alphaSelf = $alphaTrans*$alphaSelfToTrans;
-    # super denominator (pre-calculated for efficiency) includes
-    # - denominator that completes the pij probability (cTot + [forced alphaSum = scale*cTot])
-    # - pi and pj backgrounds, which are just 1/n each
-    my $superDenom = $cTot*(1+$scale)/($n*$n);
+    my $n2 = $n*$n; # the number of directed pairs appears often!
+    # symmetric dirichlet parameter can be set in three different ways:
+    my $alpha = $oldMode ? 1/$n2 # emulates dPUC 1.0 behavior
+	: defined $alphaExp ? 2**$alphaExp # set alpha directly! linear version (no sign change)
+	: 2**-$scaleExp*$cTot/$n2; # alpha is given through the -log2 of the ratio of data to prior
+    # score super denominator includes denominator of pij probability (cTot + alphaSum), and pi and pj backgrounds, both 1/n
+    my $superDenom = log2( $cTot/$n2 + $alpha );
     
     my %acc2acc2s; # scores we want!
     # navigate net
-    # pairs observed both ways will be processed twice, but meh, it'll just be overwritten... and it doesn't happen that often to try to prevent it (we'll be checking more often than it's worth).
-    while (my ($acc1, $acc2c) = each %$acc2acc2c) {
+    foreach my $acc1 (keys %$acc2acc2c) {
+	my $acc2c = $acc2acc2c->{$acc1};
 	while (my ($acc2, $c) = each %$acc2c) {
-	    my $isDiag = $acc1 eq $acc2; # remember if we're in diagonal or not
-	    
-	    # part 1: panning
-	    my $cp = $c; # panned count, default unpanned
-	    my $cr = 0; # reverse panned count, default zero
-	    # in two trivial cases counts don't change (no global panning, or we're in diagonal, which is fixed to panning).  This shouldn't affect reverse count at all, don't change anything there either.  Don't run through code below because I'm afraid math will introduce precision errors.  And this is faster!
-	    if ($pan && !$isDiag) { # do a bit more work
-		# get reverse count too, or undefined if not available
-		my $c2 = $acc2acc2c->{$acc2}{$acc1};
-		$c2 = 0 unless defined $c2; # to simplify code, set to zero when unavailable
-		# perform panning!  Overwrite previous defaults
-		$cp = $pan2*$c + $pan*$c2; # original direction
-		$cr = $pan2*$c2 + $pan*$c; # other direction.  Note since $pan>0 here, this is always non-trivial! (because $c is never zero in this case, and neither is $pan2 for allowed inputs, it's always in [1/2,1])
-	    }
-	    
-	    # part 2: scores, store in net
-	    $acc2acc2s{$acc1}{$acc2} = log2(($cp + ($isDiag ? $alphaSelf : $alphaTrans))/$superDenom); # regular score always gets saved
-	    $acc2acc2s{$acc2}{$acc1} = log2(($cr + ($isDiag ? $alphaSelf : $alphaTrans))/$superDenom) if $cr; # reverse score only if non-trivial (which correlates with $cr != 0 because of "if" above)
+	    # make score, store in net!
+	    $acc2acc2s{$acc1}{$acc2} = log2($c + $alpha) - $superDenom;
 	}
     }
     
-    # add entries for the uniform negative scores (which are now different between self and trans! so two scores!)
-    $acc2acc2s{PFNEG} = {
-	'SELF'  => log2($alphaSelf /$superDenom),
-	'TRANS' => log2($alphaTrans/$superDenom),
-    };
+    # add entries for the uniform negative scores
+    $acc2acc2s{NEG}{NEG} = log2($alpha) - $superDenom;
     my $net = \%acc2acc2s; # save as reference, more convenient for following operations...
     
     # if we want to scale or shift context (relative to HMM scores), overwrite net with scaled net, this will affect all downstream scores appropriately
@@ -192,6 +159,20 @@ sub counts2scores {
     return $net;
 }
 
+sub makeOldDpucCounts {
+    # want to make a symmetric count network exactly like the old dPUC used to
+    my ($net) = @_; # input is directed count network
+    my %netOld; # here's the output we'll construct
+    foreach my $acc1 (keys %$net) {
+	my $acc2c = $net->{$acc1};
+	while (my ($acc2, $c) = each %$acc2c) {
+	    $netOld{$acc1}{$acc2} += $c; # add count in the direction it was observed
+	    $netOld{$acc2}{$acc1} += $c if $acc1 ne $acc2; # if we're not in the diagonal, add it in the other direction as well!!!
+	}
+    }
+    return \%netOld; # done, return this!!!
+}
+
 sub mapPfamNetAccs2ints {
     # this sub takes a standard net with two pfam accessions mapped to a score, and turns it into a parallel array, one with the accessions turned into integers and combined into a matrix flat number ij2m(i,j), and another array with the corresponding score
     # this format is optimal for fast queries in C code, but it's not very perlish at all
@@ -201,7 +182,7 @@ sub mapPfamNetAccs2ints {
     my @ts;
     my @tscores;
     while (my ($acc1, $acc2s) = each %$net) {
-	next if $acc1 eq 'PFNEG'; # new entry that only occurs in Dpuc 2.0, obviously wouldn't work because "NEG" isn't an integer, things would act funny if not die
+	next if $acc1 eq 'NEG'; # this special entry won't work here because "NEG" isn't an integer, things would die
 	my $accInt1 = $acc2i->{$acc1}; # explicit map
 	while (my ($acc2, $s) = each %$acc2s) {
 	    next unless $s > 0; # here we implement the positive score filter for posElim downstream
@@ -286,20 +267,6 @@ sub scaleEdges {
     return \%net; # done, return modified network
 }
 
-sub expEdges {
-    # given a network with raw counts, exponentiates each value by the given exponent $gamma
-    # has the effect of increasing the frequency of the heaviest edges relative to the weakest ones, which leads to smaller scores for the weakest edges, but notably without setting any of them to the worst negative score reserved for unobserved edges.  Here weakest edges (after log-odds, of course) will be smoothly downweighed to have near zero scores, or slightly negative scores, as desired by adjusting gamma
-    my ($net, $gamma) = @_;
-    my %net; # new net, so don't edit input structure
-    # navigate net
-    while (my ($acc1, $acc2c) = each %$net) {
-	while (my ($acc2, $c) = each %$acc2c) {
-	    $net{$acc1}{$acc2} = $c**$gamma; # here we exponentiate the counts, then place in new network structure
-	}
-    }
-    return \%net; # return new net
-}
-
 sub sumEdges {
     # add the values of every edge in net
     # edges will be double counted if net is symmetric and edges are listed both ways, but should be ok one way or directional (will add both directions)
@@ -312,29 +279,6 @@ sub sumEdges {
 	}
     }
     return $cTot;
-}
-
-sub blendNets {
-    my ($nets, $ws) = @_;
-    # given a list of nets with parallel blending weight vector, will produce a normalized network where each edge is the weighted average of the input edges, after each being normalized
-    # really only want pair case, but it's harder to not generalize!
-    # weights must be between 0 and 1, won't verify that this is the case, but you might get unexpected results otherwise.
-    # preserves directionality of input nets!
-    # turns out this stupid loop is best way I could think of producing new net, since edges might be missing in any of the inputs
-    my %net; # this is the new network that is the blend of the inputs
-    my $n = @$nets;
-    for (my $i = 0; $i < $n; $i++) {
-	my $net = $nets->[$i];
-	# first get normalizing constant, incorporate into weight
-	my $w = $ws->[$i]/sumEdges($net);
-	# navigate net
-	while (my ($acc1, $acc2c) = each %$net) {
-	    while (my ($acc2, $c) = each %$acc2c) {
-		$net{$acc1}{$acc2} += $c*$w; # add normalized and weighted version of this edge to final blended net
-	    }
-	}
-    }
-    return \%net; # done, return desired net
 }
 
 sub set2hashmap {

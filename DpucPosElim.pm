@@ -5,8 +5,11 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucPosElim;
-our $VERSION = 2.00;
+our $VERSION = 2.01;
 use strict;
+
+# 2015-08-14 11:24:16 EDT
+# - v2.01: removed all self/trans distinction and parameter that controlled it. the code that handled negative self-context scores also went away.
 
 use Inline C => 'DATA';
 
@@ -28,12 +31,6 @@ int stepGrowTs = 1024*1024; // this may be tuned somehow, not sure how much it w
 int numTs = 0; // this tells us how big the data in the top two arrays is, for the purposes of loops, but isn't the total memory allocated, that's the number above
 int* ts = NULL; // it's important to initialize these as NULL cause they are called with realloc only.  Nothing else uses realloc, so meh
 int* tscores = NULL;
-int negSelf = 0; // DPUC 2.0's directed network has a new series of priors that in some cases allow self interactions to be positive even in the absense of counts.  We need this value for posElim!
-
-// copy this value from Perl space to C space
-void setNegSelf (int negSelfIn) {
-  negSelf = negSelfIn;
-}
 
 // these are necessary to avoid memory leaks (if process does Context in the beginning and decides to stop and do other things later)!!!  Need to call from Perl when done to free that memory!!!
 void freeNetTscoresInC () {
@@ -167,14 +164,6 @@ void getScoresNet_posElim (AV* hitis2acc_av) {
 	ts[numTs] = t;
 	tscores[numTs] = netTscores[netTi]; // actually get the score from the parallel array
 	numTs++; // now we officially have a new element!
-      }
-      else if (negSelf > 0 && acci == accj) {
-	// score wasn't found, but we still have a positive score if negSelf > 0 and acci == accj
-	// go through the same drill as above...
-	if (numTs >= numTsMax) { growTscores(); }
-	ts[numTs] = t;
-	tscores[numTs] = negSelf; // main difference here is using negSelf instead of the explicit score from the network
-	numTs++;
       }
       // increment t for next j
       t++;

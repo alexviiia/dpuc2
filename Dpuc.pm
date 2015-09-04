@@ -5,16 +5,22 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.02;
+our $VERSION = 2.03;
 use lib '.';
 use Domains;
-use Codd;
 use DpucPosElim;
 use DpucLpSolve;
 use DpucNetScores;
 use DpucOvsCompact;
 use EncodeIntPair;
 use strict;
+
+# 2015-08-05 13:52:55 EDT
+# v2.03 - besides major version bump, removed explicit inputs to loadNet, which simply passes all to DpucNetScores::loadNet
+# 2015-08-12 21:15:10 EDT
+# - same version (haven't posted yet): removed removeOvsCodd and removeOvsPRank option!
+# 2015-08-14 11:24:16 EDT
+# - same version (haven't posted): removed all self/trans distinction and parameter that controlled it. the code that handled negative self-context scores also went away.
 
 # package constants
 my $scoreScale = 1000; # in posElim, we multiply context scores internally by this much, then turn into ints (so additions are faster), but we also have to keep this scale in mind when we combine context and HMM scores!  This loses some precision, but I think it's acceptable for the sake of speed, and also given the uncertainty involved in the actual calculation of context scores.
@@ -27,13 +33,11 @@ our $doNewHitRefs = 1; # may edit this outside to change behavior as desired
 
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-    my ($accs, $fi, $panning, $alphaSelfToTrans, $scaleExp, $scaleContext, $shiftContext, $cCut, $w, $fi2, $cCut2, $gamma) = @_;
     
-    my ($net, $acc2i, $netTs, $netTscores, $negSelfInt, $acc2cc) = DpucNetScores::loadNet($scoreScale, @_); # pass the same input here, plus this list of accs
+    my ($net, $acc2i, $netTs, $netTscores, $acc2cc) = DpucNetScores::loadNet($scoreScale, @_); # pass the same input here, plus this list of accs
     
     # copy perl structures into global and native C structures, should speed a few things up
     DpucPosElim::copyNetTscoresToC($netTs, $netTscores);
-    DpucPosElim::setNegSelf($negSelfInt); # copy $negSelfInt to C space, whether positive or negative, always overwriting values from previous sessions!
     
     # return this $netData array, contains an array ref of things we want (no point in presenting them separately on the outside, only dPUC needs them internally!
     return [$net, $acc2i, $acc2cc];
@@ -52,7 +56,7 @@ sub getInfoKeys {
 }
 
 sub dpuc {
-    my ($hits, $netData, $nestingNet, $acc2ds2t, $acc2ts, $timeout, $Ecuts, $foLps, $fCut, $lCut, $removeOvsPRank, $removeOvsCodd) = @_;
+    my ($hits, $netData, $nestingNet, $acc2ds2t, $acc2ts, $timeout, $Ecuts, $foLps, $fCut, $lCut) = @_;
     # this sub efficiently computes dpuc predictions over a range of E-value cutoffs
     # the idea is to factor and skip work in these cases
     # - posElim preds are always nested by E-value, so we start from the previously-solved problem instead of starting from scratch
@@ -83,9 +87,6 @@ sub dpuc {
     }
     # so after this step, $Ecuts is always an array, and so is $foLps if it was defined (loops don't have to think about this too much anymore)
     
-    # two options give preds with no overlaps, setting this boolean ensures that the rest of the code takes advantage of this simplified problem
-    my $noOvs = $removeOvsPRank || $removeOvsCodd;
-    
     my @cut2hitsDpuc;
     my @cut2hitsPosElim; # for debugging/random interest
     my @cut2info; # for debugging/random interest
@@ -94,7 +95,7 @@ sub dpuc {
     my $hitsDpuc; # copy reference to previous solution when nonOvNeg is not redone
     
     # do pre-elimination step here, only once for all Ecuts, necessary for both posElim and nonOvNeg
-    ($hits, my $hit2passSeq, my $errStr) = preElim($hits, $acc2ds2t, $acc2ts, $removeOvsPRank, $removeOvsCodd, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net);
+    ($hits, my $hit2passSeq, my $errStr) = preElim($hits, $acc2ds2t, $acc2ts, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net);
 
     # if there was an error, return with it immediately
     return (undef, undef, undef, $errStr) if $errStr;
@@ -110,16 +111,19 @@ sub dpuc {
 	if (!defined $maxE || $maxE > $Ecut) {
 	    # run the dPUC positive elimination, replace old hits because these are subsets as we advance @cuts
 	    # it will compute the $overlapNet the first time, and remember it subsequent times
-	    ($hits, $info, $overlapNet) = posElim($hits, $nestingNet, $acc2ts, $hit2passSeq, $Ecut, $overlapNet, $fCut, $lCut, $noOvs);
+	    ($hits, $info, $overlapNet) = posElim($hits, $nestingNet, $acc2ts, $hit2passSeq, $Ecut, $overlapNet, $fCut, $lCut);
 	    # remember what overlaps are forbidden, and store the final scores to make a single hash call per pair.
-	    # only do first time, or never do if CODD pre-filter is used (in current implementation, CODD prefilter always returns hits with no overlaps and no negative context, so posElim should give the final solution directly!
-	    $scoresNet = getScoresNet_nonOvNeg($hits, $net, $overlapNet, $noOvs) unless defined $scoresNet || $removeOvsCodd;
+	    # only do first time
+	    $scoresNet = getScoresNet_nonOvNeg($hits, $net, $overlapNet) unless defined $scoresNet;
 	    # run the dPUC lp_solve general optimization, these are kept separate because they don't have an obvious relation as we advance @cuts
-	    ($hitsDpuc, my $infoLp) = lpNonOvNeg($hits, $scoresNet, $nestingNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $fCut, $lCut, $noOvs, $removeOvsCodd);
+	    ($hitsDpuc, my $infoLp) = lpNonOvNeg($hits, $scoresNet, $nestingNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $fCut, $lCut);
 	    mergeHashes($info, $infoLp); # consolidate info hashes!
 	    $maxE = 0; # identify worst E-value in solution to avoid rerunning dPUC next time if possible, initialize with zero (the best possible E-value), which covers the trivial no-hits case!
 #	    if ($info->{lpStatus} eq 'OPTIMAL' || $info->{lpStatus} eq 'TRIVIAL') {
-		foreach my $h (@$hitsDpuc) { $maxE = $h->{E} if !$h->{GA} && $maxE < $h->{E}; } # go through data to find worst E-value, only consider non-GA domains, the only ones posElim can eliminate (otherwise lpNonOvNeg will be fed the same problem again)!
+	    foreach my $h (@$hitsDpuc) {
+		# go through data to find worst E-value, only consider non-GA domains, the only ones posElim can eliminate (otherwise lpNonOvNeg will be fed the same problem again)!
+		$maxE = $h->{E} if !$h->{GA} && $maxE < $h->{E};
+	    }
 #	    }
 #	    else { $maxE = $Ecut; } # if not optimal, setting maxE to current cut guarantees that dPUC will be run next time, as desired
 	}
@@ -135,7 +139,7 @@ sub dpuc {
 
 sub preElim {
     # this sub applies a few one-time-only processing steps to data
-    my ($hits, $acc2ds2t, $acc2ts, $removeOvsPRank, $removeOvsCodd, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net) = @_;
+    my ($hits, $acc2ds2t, $acc2ts, $nestingNet, $fCut, $lCut, $acc2i, $acc2cc, $net) = @_;
 
     # first thing to do is map accs to integers, because this helps catch version mismatch errors (and we want to stop as soon as possible when that happens)
     # we'd like to check before filters have been applied! (filters reduce the change that we'll catch the error sooner)
@@ -148,20 +152,6 @@ sub preElim {
 	}
     }
 
-    # if want to remove overlaps (using CODD and/or p-values), do it first!  Both also sort hits by start
-    # note that if both options are set, only CODD is run!
-    if ($removeOvsCodd) {
-	# note: this mode doesn't use GA columns at all (as it should be)!
-	my $doGaFree = 1; # this makes codd behave as we desire for this application
-	my $doNeg = 1; # this is also maximally compatible with dPUC (assume all negative context will be insurmonable)
-	my $key = 'E'; # force ranking by p-value here, later we might keep that even for dpuc23 (dpucq)
-	$hits = Codd::codd($hits, $net, $nestingNet, $doNeg, $fCut, $lCut, $key, $doGaFree);
-    }
-    elsif ($removeOvsPRank) {
-	$hits = Domains::removeOverlapsByScore($hits, $nestingNet, $fCut, $lCut);
-    }
-    # else run on entire set
-    
     # remove non-GA domains that are not "context-carrying" (domains that don't have positive context with anything, including themselves)
     # this filter is super quick and independent of E-value thresholds, and doesn't do anything when applied multiple times, so might as well put it out here
     Domains::labelGa($hits, $acc2ds2t); # calculate whether this hit passes GA or not, needed for filterCC
@@ -186,13 +176,12 @@ sub preElim {
 sub lpNonOvNeg {
     # this is the generalized sub that runs lpSolve with nonOvNeg on a set of hits
     # only funny param is $foLp, if provided, we only print the original formulation (not the timeout simplifications), just so you know!
-    my ($hits, $scoresNet, $nestingNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $fCut, $lCut, $noOvs, $removeOvsCodd) = @_;
+    my ($hits, $scoresNet, $nestingNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $fCut, $lCut) = @_;
     
     my $numHitsIn = scalar @$hits;
     
     # this handy sub transforms a single @$hits problem, given the general scoring structures, into the lp_solve problem, which gets solved
-    # $removeOvsCodd only needs to be passed here (subsequent cases never happen), if true it is always a trivial problem, if false it doesn't matter anyway.  But should go through strucLp because it finalizes solution (even if trivial, some things need recalculation)
-    my ($hitsPass, $info) = strucLp($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $noOvs, $removeOvsCodd);
+    my ($hitsPass, $info) = strucLp($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp);
     
     # if we had an optimal solution, return!
     if ($info->{lpStatus} eq 'OPTIMAL' || $info->{lpStatus} eq 'TRIVIAL') {
@@ -201,56 +190,52 @@ sub lpNonOvNeg {
     # else continue...
     # this should only be the suboptimal or timeout case, but don't assume other errors can't occur
     
-    # the following were simplifications were overlaps were removed, but if we removed them all in the first place, then let's not even send anything cause it will be futile...
-    my $infoNonOvLpStatus; # undefined ok
-    unless ($noOvs) {
-	# let's try to reasonably simplify the problem without just returning GA...
-	# there are two ways of doing it
-	# let's remove all overlaps while keeping the top scoring hits, then run lp_solve again
-	my $hitsNonOv = Domains::removeOverlapsByScore($hits, $nestingNet, $fCut, $lCut); # remove overlaps as desired, also sorts hits by start
-	# another way of removing overlaps, this time favoring homogeneity (which should be a better bet when we have tons of repeats with overlapping clan members)
-	my $hitsNonOvPop = Domains::removeOverlapsByAccPopularity($hits, $nestingNet, $fCut, $lCut);
-	my ($hitsPassNonOv, $infoNonOv); # we might not run these things, keep undefined in that case...
-	my ($hitsPassNonOvPop, $infoNonOvPop); # ditto
-	
-	# try if we actually eliminated stuff
-	# in one important case this is not true, so we don't keep wasting our time
-	if (@$hitsNonOv < $numHitsIn){
-	    ($hitsPassNonOv, $infoNonOv) = strucLp($hitsNonOv, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $noOvs);
-	    $info->{lpTime} += $infoNonOv->{lpTime}; # always add new runtime to old runtime
-	}
-	if (@$hitsNonOvPop < $numHitsIn){
-	    ($hitsPassNonOvPop, $infoNonOvPop) = strucLp($hitsNonOvPop, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $noOvs);
-	    $info->{lpTime} += $infoNonOvPop->{lpTime}; # always add new runtime to old runtime
-	}
-	# decide if the second simplified version is better than the first...
-	# first: only consider if the second one is defined
-	# second: either first one is undefined, or both are defined but second score is better...
-	if (defined $infoNonOvPop && (!defined $infoNonOv || $infoNonOvPop->{score} > $infoNonOv->{score}) ) {
-	    # replace first with second in these cases
-	    ($hitsPassNonOv, $infoNonOv) = ($hitsPassNonOvPop, $infoNonOvPop);
-	}
-	# if this problem was solved at any capacity (optimally or suboptimally), return that
-	# we can safely assume that if we couldn't solve any of the simplified problems, that there's no way we could have solved the original problem either
-	if (defined $infoNonOv && ($infoNonOv->{lpStatus} eq 'OPTIMAL' || $infoNonOv->{lpStatus} eq 'TRIVIAL' || $infoNonOv->{lpStatus} eq 'SUB-OPTIMAL')) {
-	    # if original lpStatus was suboptimal, then we have two plausible solutions, the original and the simplified one...
-	    # decide which one to return based on total score
-	    if ($info->{lpStatus} eq 'SUB-OPTIMAL' && $info->{score} >= $infoNonOv->{score}) {
-		return ($hitsPass, $info); # return original one, pretend second thing wasn't run except for time (already updated)
-	    }
-	    # else continue...
-	    # if original timed out, or if it was suboptimal but the new solution was better, return new sol
-	    $infoNonOv->{lpTime} = $info->{lpTime}; # put cumulative time back on this thing (only original hash had such cumulative time)
-	    $infoNonOv->{lpStatus} = $info->{lpStatus}.','.$infoNonOv->{lpStatus}; # lpStatus is now the combination of the original and the second lpStatus, just to be informative
-	    $infoNonOv->{lpNonZeroes} = $info->{lpNonZeroes}; # however, we won't increase the size of the problem, leave original size
-	    # should probably add lpNodesProc and lpIter, but meh, not too useful if not debugging/optimizing, and in almost all cases this simplified problem won't happen anyway, so meh again
-	    return ($hitsPassNonOv, $infoNonOv);
+    # let's try to reasonably simplify the problem without just returning GA...
+    # there are two ways of doing it
+    # let's remove all overlaps while keeping the top scoring hits, then run lp_solve again
+    my $hitsNonOv = Domains::removeOverlapsByScore($hits, $nestingNet, $fCut, $lCut); # remove overlaps as desired, also sorts hits by start
+    # another way of removing overlaps, this time favoring homogeneity (which should be a better bet when we have tons of repeats with overlapping clan members)
+    my $hitsNonOvPop = Domains::removeOverlapsByAccPopularity($hits, $nestingNet, $fCut, $lCut);
+    my ($hitsPassNonOv, $infoNonOv); # we might not run these things, keep undefined in that case...
+    my ($hitsPassNonOvPop, $infoNonOvPop); # ditto
+    
+    # try if we actually eliminated stuff
+    # in one important case this is not true, so we don't keep wasting our time
+    if (@$hitsNonOv < $numHitsIn){
+	($hitsPassNonOv, $infoNonOv) = strucLp($hitsNonOv, $scoresNet, $acc2ts, $hit2passSeq, $timeout);
+	$info->{lpTime} += $infoNonOv->{lpTime}; # always add new runtime to old runtime
+    }
+    if (@$hitsNonOvPop < $numHitsIn){
+	($hitsPassNonOvPop, $infoNonOvPop) = strucLp($hitsNonOvPop, $scoresNet, $acc2ts, $hit2passSeq, $timeout);
+	$info->{lpTime} += $infoNonOvPop->{lpTime}; # always add new runtime to old runtime
+    }
+    # decide if the second simplified version is better than the first...
+    # first: only consider if the second one is defined
+    # second: either first one is undefined, or both are defined but second score is better...
+    if (defined $infoNonOvPop && (!defined $infoNonOv || $infoNonOvPop->{score} > $infoNonOv->{score}) ) {
+	# replace first with second in these cases
+	($hitsPassNonOv, $infoNonOv) = ($hitsPassNonOvPop, $infoNonOvPop);
+    }
+    # if this problem was solved at any capacity (optimally or suboptimally), return that
+    # we can safely assume that if we couldn't solve any of the simplified problems, that there's no way we could have solved the original problem either
+    if (defined $infoNonOv && ($infoNonOv->{lpStatus} eq 'OPTIMAL' || $infoNonOv->{lpStatus} eq 'TRIVIAL' || $infoNonOv->{lpStatus} eq 'SUB-OPTIMAL')) {
+	# if original lpStatus was suboptimal, then we have two plausible solutions, the original and the simplified one...
+	# decide which one to return based on total score
+	if ($info->{lpStatus} eq 'SUB-OPTIMAL' && $info->{score} >= $infoNonOv->{score}) {
+	    return ($hitsPass, $info); # return original one, pretend second thing wasn't run except for time (already updated)
 	}
 	# else continue...
-	$hits = $hitsNonOv; # use these for further simplification below...
-	$infoNonOvLpStatus = $infoNonOv->{lpStatus}; # might use this below...
+	# if original timed out, or if it was suboptimal but the new solution was better, return new sol
+	$infoNonOv->{lpTime} = $info->{lpTime}; # put cumulative time back on this thing (only original hash had such cumulative time)
+	$infoNonOv->{lpStatus} = $info->{lpStatus}.','.$infoNonOv->{lpStatus}; # lpStatus is now the combination of the original and the second lpStatus, just to be informative
+	$infoNonOv->{lpNonZeroes} = $info->{lpNonZeroes}; # however, we won't increase the size of the problem, leave original size
+	# should probably add lpNodesProc and lpIter, but meh, not too useful if not debugging/optimizing, and in almost all cases this simplified problem won't happen anyway, so meh again
+	return ($hitsPassNonOv, $infoNonOv);
     }
     # else continue...
+    $hits = $hitsNonOv; # use these for further simplification below...
+    my $infoNonOvLpStatus = $infoNonOv->{lpStatus}; # might use this below...
+
     # I think this doesn't happen anymore, will have to test in hard problems (newFdr? newFdrOrthoAlns? change in dpucNet params?)
     # remember to get back to this... will keep old version for now...
     ################
@@ -261,7 +246,7 @@ sub lpNonOvNeg {
     # try if we actually eliminated stuff
     # in one important case this is not true, so we don't keep wasting our time
     if (@$hitsNonOvGa < $numHitsIn){
-	($hitsPassNonOvGa, $infoNonOvGa) = strucLp($hitsNonOvGa, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $noOvs);
+	($hitsPassNonOvGa, $infoNonOvGa) = strucLp($hitsNonOvGa, $scoresNet, $acc2ts, $hit2passSeq, $timeout);
 	$infoNonOvGa->{lpTime} += $info->{lpTime}; # always add new runtime to old runtime, but assing to new info hash this time (old hash definitely won't be returned here)
 	$infoNonOvGa->{lpStatus} = join ',', grep { defined } $info->{lpStatus}, $infoNonOvLpStatus, $infoNonOvGa->{lpStatus}; # lpStatus is now the combination of the original and the subsequent lpStatuss, just to be informative
 	$infoNonOvGa->{lpNonZeroes} = $info->{lpNonZeroes}; # however, we won't increase the size of the problem, leave original size
@@ -280,7 +265,7 @@ sub lpNonOvNeg {
 sub strucLp {
     # this sub takes a particular hits structure, and a few general data structures, and returns the text corresponding to the lp_solve problem to solve, computing all the necessary intermediate steps
     # also detects and returns trivial problems to spare us calling lp_solve
-    my ($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $noOvs, $removeOvsCodd) = @_;
+    my ($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp) = @_;
     
     # somewhat often there are no input domains, bail out early in that case!
     # equally trivial is the 1-domain case, there's no context to figure things out for... (but score is the domain's score)
@@ -317,26 +302,24 @@ sub strucLp {
     # next "trivial" case is no overlaps and all positive context
     # contingent on posElim having been run already (to ensure thresholds were satisfied).  In that case the positive score is actually the real score, and it's obviously maximized by including everything.
     # one huge Pf protein is so large lpSolve doesn't like it, but satisfies this condition and is therefore actually easy
-    my $hasOvs = 0; # booleans that keep track of what we want to know... if $noOvs is on there should be no overlaps but it takes longer to say "ignore this" than it does to just check as usual (because the overlaps are built into the scores, there will always be scores so no overlaps will be found, no additional expense will occur)
+    my $hasOvs = 0; # booleans that keep track of what we want to know...
     my $hasNegs = 0;
-    unless ($removeOvsCodd) { # don't even bother if CODD prefilter was used, we know they stay zeroes
-	# navigate all domain pairs
-	for (my $i = 0; $i < $numHitsIn; $i++) {
-	    my $hi = $hits->[$i];
-	    my $scoresNetHere = $scoresNet->{$hi};
-	    for (my $j = $i+1; $j < $numHitsIn; $j++) {
-		my $hj = $hits->[$j];
-		# if we found a score...
-		my $Cij = $scoresNetHere->{$hj};
-		if (defined $Cij) {
-		    $hasNegs = 1 if $Cij < 0; # mark if we found a negative score
-		}
-		# a missing score is necessarily a disallowed overlap, mark overlaps boolean
-		else { $hasOvs = 1; }
-		last if $hasOvs && $hasNegs; # stop looking if both booleans have been set.  this only breaks inner loop
+    # navigate all domain pairs
+    for (my $i = 0; $i < $numHitsIn; $i++) {
+	my $hi = $hits->[$i];
+	my $scoresNetHere = $scoresNet->{$hi};
+	for (my $j = $i+1; $j < $numHitsIn; $j++) {
+	    my $hj = $hits->[$j];
+	    # if we found a score...
+	    my $Cij = $scoresNetHere->{$hj};
+	    if (defined $Cij) {
+		$hasNegs = 1 if $Cij < 0; # mark if we found a negative score
 	    }
-	    last if $hasOvs && $hasNegs; # stop looking if both booleans have been set.  this breaks outer loop
+	    # a missing score is necessarily a disallowed overlap, mark overlaps boolean
+	    else { $hasOvs = 1; }
+	    last if $hasOvs && $hasNegs; # stop looking if both booleans have been set.  this only breaks inner loop
 	}
+	last if $hasOvs && $hasNegs; # stop looking if both booleans have been set.  this breaks outer loop
     }
     if (!$hasOvs && !$hasNegs) {
 	# this is another trivial case, wrap up and return what we have
@@ -347,7 +330,7 @@ sub strucLp {
     
     # not trivial, have to use lp_solve...
     # restructure and send to lp_solve via C binding, get answers!
-    my ($hitsPass, $info) = strucLpForC($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $noOvs);
+    my ($hitsPass, $info) = strucLpForC($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp);
     
     # write final context scores into domain objects (hashes), return!
     $hitsPass = wrapUp_nonOvNeg($hitsPass, $scoresNet);
@@ -368,7 +351,7 @@ sub getScoreManually {
 sub strucLpForC {
     # we want to write the objective function, but we get the edge-defining constraints and declarations trivially, so might as well get them
     # the scores net already excludes scores between overlapping domains, so we won't waste text writing that, and we won't define those edges that cannot be used!
-    my ($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $noOvs) = @_;
+    my ($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp) = @_;
     
     # not sure what Inline::C does if $foLp is undefined, better set it to an empty string
     $foLp = '' unless defined $foLp;
@@ -430,7 +413,7 @@ sub strucLpForC {
     
     # use bulky outside function to try to compact overlap definitions, which will make the LP faster!
     # nothing to consider if overlaps have already been removed! (pass an empty array ref instead)
-    my $ovsCompact = $noOvs ? [] : DpucOvsCompact::compactOvs(\@ovs);
+    my $ovsCompact = DpucOvsCompact::compactOvs(\@ovs);
     
     # now we can "define" the Si's (domain scores) in terms of Di and Eij's
     my @SiDefs = ();
@@ -499,7 +482,7 @@ sub strucLpForC {
 
 sub posElim {
     # this sub does everything that must be done for posElim, while receiving as inputs all that can be factored out, and the problem itself ($hits)
-    my ($hits, $nestingNet, $acc2ts, $hit2passSeq, $Ecut, $overlapNet, $fCut, $lCut, $noOvs) = @_;
+    my ($hits, $nestingNet, $acc2ts, $hit2passSeq, $Ecut, $overlapNet, $fCut, $lCut) = @_;
     
     # remove hits that are neither GA nor satisfy our E-value cutoff (same as CODD)
     # this overwrites the internal $hits array ref, but the external $hits is unmodified!
@@ -549,31 +532,28 @@ sub posElim {
     my $iter = 0;
     my ($numPassNow); # undefined is ok
     
-    # if we removed all overlaps, then these steps aren't needed!
-    unless ($noOvs) {
-	# very first time we run posElim we will have too many hits to eliminate, and it's not worth computing the $overlapNet until the set is much smaller
-	# however, subsequent runs (for more stringent E-values) can take the previously computed $overlapNet and skip directly to that part of the elimination...
-	unless (defined $overlapNet) {
-	    # do massive eliminations by setting cutoffs at the domain and sequence level
+    # very first time we run posElim we will have too many hits to eliminate, and it's not worth computing the $overlapNet until the set is much smaller
+    # however, subsequent runs (for more stringent E-values) can take the previously computed $overlapNet and skip directly to that part of the elimination...
+    unless (defined $overlapNet) {
+	# do massive eliminations by setting cutoffs at the domain and sequence level
+	$iter++;
+	$hitis = elimMaxScore($hits, $hitis, $acc2ts, $hit2passSeq);
+	$numPassNow = scalar @$hitis;
+	while ($numPass != $numPassNow) { # this condition means we haven't converged
+	    $numPass = $numPassNow; # update counts
+	    # run again
 	    $iter++;
 	    $hitis = elimMaxScore($hits, $hitis, $acc2ts, $hit2passSeq);
 	    $numPassNow = scalar @$hitis;
-	    while ($numPass != $numPassNow) { # this condition means we haven't converged
-		$numPass = $numPassNow; # update counts
-		# run again
-		$iter++;
-		$hitis = elimMaxScore($hits, $hitis, $acc2ts, $hit2passSeq);
-		$numPassNow = scalar @$hitis;
-	    }
-	    
-	    # now that total hits are largely reduced, include overlap information into eliminations (too expensive to do at first)
-	    my $hitsLeft = [@{$hits}[@$hitis]]; # this list includes only hits that have passed.  This reduced list requires overlap checking.
-	    ($overlapNet) = Domains::overlapNetBinarySearch($hitsLeft, $nestingNet, $fCut, $lCut); # get which hits actually overlap and aren't allowed to, mapping from reference
 	}
 	
-	# need to do this always, to use $overlapNet info
-	zeroScoresOvPairs($hits, $hitis, $overlapNet); # update C's $scoresNet half matrix by zeroing the scores that aren't allowed due to overlaps
+	# now that total hits are largely reduced, include overlap information into eliminations (too expensive to do at first)
+	my $hitsLeft = [@{$hits}[@$hitis]]; # this list includes only hits that have passed.  This reduced list requires overlap checking.
+	($overlapNet) = Domains::overlapNetBinarySearch($hitsLeft, $nestingNet, $fCut, $lCut); # get which hits actually overlap and aren't allowed to, mapping from reference
     }
+    
+    # need to do this always, to use $overlapNet info
+    zeroScoresOvPairs($hits, $hitis, $overlapNet); # update C's $scoresNet half matrix by zeroing the scores that aren't allowed due to overlaps
     
     # do massive eliminations by setting cutoffs at the domain and sequence level
     $iter++;
@@ -709,7 +689,7 @@ sub getPassSeq {
     my ($hits, $acc2ts) = @_;
     
     # make this structure that keeps track of which families pass GA, and we'll mark them and additional family members as automatically passing all sequence thresholds.
-    # this is guaranteed as long as there's a single domain (trivial) or all domains have positive scores (negative self scores complicate this analysis)
+    # this is guaranteed as long as there's a single domain (trivial) or all domains have positive scores
     # (copied from another part of the code...): an assumption breaks down when using negative context, but I doubt that it will matter in practice, let's just trust GAs when it comes to the sequence threshold.
     # anomalous cases might not be eliminated when they should, but this filter is strong enough that we won't care about this problem
     my %acc2pass;
@@ -749,11 +729,10 @@ sub getSumScoreEdgesFromNode_nonOvNeg {
 sub getScoresNet_nonOvNeg {
     # this sub combines the overlap disallowed rule, with the context net that uses accessions, to make a net that maps each hit pair (as refs, not Pfam accessions) to the scores they should map to.  This should significantly speed up iterations (without affecting single-iteration runs a whole lot)
     # providing an empty overlap hash should have no effect in processing, I only hope perl doesn't complain
-    my ($hits, $net, $overlapNet, $noOvs) = @_;
+    my ($hits, $net, $overlapNet) = @_;
     my %scoresNet; # the structure we want, both ways
-    # since most edges are probably negative, save those two scores from the network to save on hash calls
-    my $negSelf = $net->{PFNEG}{SELF};
-    my $negTrans = $net->{PFNEG}{TRANS};
+    # since most edges are probably negative, save this score from the network to save on hash calls
+    my $neg = $net->{NEG}{NEG};
     # we can halve the number of operations by not repeating pairs in loop!
     my $numHits = scalar @$hits;
     for (my $i = 0; $i < $numHits; $i++) {
@@ -763,17 +742,14 @@ sub getScoresNet_nonOvNeg {
 	for (my $j = $i+1; $j < $numHits; $j++) {
 	    my $hj = $hits->[$j];
 	    # check for overlap and ask the nesting net if it should be allowed (precalculated)
-	    if ($noOvs || !$overlapNet->{$hi}{$hj}) {
+	    if (!$overlapNet->{$hi}{$hj}) {
 		### This is where the posElim-nonOvNeg difference lies, changed for Dpuc2
 		# here for Dpuc11 we used to force counts with negative scores to zero scores, we don't do that anymore (but all counts get positive scores now anyway, we're simply not checking anymore)
 		# this part also changed from Dpuc11, negative scores were allowed to take arbitrary p_i,p_j background values, but now they're explicitly uniform.
-		# however, Dpuc11 only had a single prior for all types of data, now we have different priors for self and trans context, so those values can be quite different, even positive (which we also now allow, we didn't use to)
 		# lastly, Dpuc11 allowed for some domains to not participate in context at all (positive or negative), in the case that they were only present in eliminated architectures.  Now we make exceptions for those architectures, so all domains have context.  Missing positive context implies negative context!
 		my $accj = $hj->{acc};
 		my $edgeScore = $netThisAcc->{$accj}; # score of this pair
-		unless (defined $edgeScore) {
-		    $edgeScore = $acci eq $accj ? $negSelf : $negTrans;
-		}
+		$edgeScore = $neg unless defined $edgeScore;
 		### end posElim-nonOvNeg difference
 		# save both ways!
 		$scoresNet{$hi}{$hj} = $edgeScore;
