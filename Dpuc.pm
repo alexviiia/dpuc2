@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.03;
+our $VERSION = 2.04;
 use lib '.';
 use Domains;
 use DpucPosElim;
@@ -21,6 +21,8 @@ use strict;
 # - same version (haven't posted yet): removed removeOvsCodd and removeOvsPRank option!
 # 2015-08-14 11:24:16 EDT
 # - same version (haven't posted): removed all self/trans distinction and parameter that controlled it. the code that handled negative self-context scores also went away.
+# 2015-10-30 22:04:07 EDT
+# v2.04 - major version bump (reflects change in DpucNetScores prior parametrization)
 
 # package constants
 my $scoreScale = 1000; # in posElim, we multiply context scores internally by this much, then turn into ints (so additions are faster), but we also have to keep this scale in mind when we combine context and HMM scores!  This loses some precision, but I think it's acceptable for the sake of speed, and also given the uncertainty involved in the actual calculation of context scores.

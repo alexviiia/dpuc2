@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucNetScores;
-our $VERSION = 1.02;
+our $VERSION = 1.03;
 
 # 2015-06-05 10:52:14 EDT
 # v1.01 - script now parses files that start with list of nodes
@@ -25,6 +25,9 @@ our $VERSION = 1.02;
 # - also removed gamma option, which probably doesn't make much sense, and would be a pain to benchmark. This drops an internal function completely!
 # - overall, cleaned internal counts2scores considerably!
 
+# 2015-10-30 22:04:07 EDT
+# v1.03 - removed "scale" prior parametrization in favor of directly setting alpha (which is also assumed to be linear, not log like before)
+
 use lib '.';
 use FileGz;
 use EncodeIntPair;
@@ -33,7 +36,7 @@ use strict;
 # for Dpuc only
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-    my ($scoreScale, $accs, $fi, $scaleExp, $scaleContext, $shiftContext, $cCut, $alphaExp, $oldMode) = @_;
+    my ($scoreScale, $accs, $fi, $alpha, $scaleContext, $shiftContext, $cCut, $oldMode) = @_;
     
     # always load raw counts and compute scores on the fly!
     $cCut = undef if $oldMode; # old mode didn't have these things!!! Ensure cuts aren't used there!!!
@@ -45,7 +48,7 @@ sub loadNet {
     die "Fatal: domain family sets disagree between input Pfam-A.hmm.dat and this dpucNet: $fi\nTheir Pfam versions probably disagree!\nNo output was generated\n" unless setIdentity($accs, $nodes);
     
     # construct scores given counts and other parameters
-    $net = counts2scores($net, $n, $scaleExp, $scaleContext, $shiftContext, $alphaExp, $oldMode);
+    $net = counts2scores($net, $n, $alpha, $scaleContext, $shiftContext, $oldMode);
     
     # need to make sure this exists before processing nets (necessary for C code and to define $n for on-the-fly scores)
     my $acc2i = set2hashmap($nodes); # now make hash that maps each accession to its index, store as global!
@@ -112,7 +115,7 @@ sub counts2scores {
     # no combinatorics here like original script (which was left unchanged), and we dropped some useless features (notably clans map)
     # dropped intermediate panned counts net creation, made sense for combinatorics but not here!
     # on the other hand, made algorithms faster, which matters a lot more when doing things on the fly!
-    my ($acc2acc2c, $n, $scaleExp, $scaleBits, $shiftBits, $alphaExp, $oldMode) = @_; # input count structure and params
+    my ($acc2acc2c, $n, $alpha, $scaleBits, $shiftBits, $oldMode) = @_; # input count structure and params
     # get sum of counts from network, parameter independent!
     my $cTot = sumEdges($acc2acc2c);
     # add counts in both directions (except for diagonal) if we want "old" mode.
@@ -121,10 +124,8 @@ sub counts2scores {
     
     # part 2: score params
     my $n2 = $n*$n; # the number of directed pairs appears often!
-    # symmetric dirichlet parameter can be set in three different ways:
-    my $alpha = $oldMode ? 1/$n2 # emulates dPUC 1.0 behavior
-	: defined $alphaExp ? 2**$alphaExp # set alpha directly! linear version (no sign change)
-	: 2**-$scaleExp*$cTot/$n2; # alpha is given through the -log2 of the ratio of data to prior
+    # oldMode overrides alpha here!
+    $alpha = 1/$n2 if $oldMode; # emulates dPUC 1.0 behavior
     # score super denominator includes denominator of pij probability (cTot + alphaSum), and pi and pj backgrounds, both 1/n
     my $superDenom = log2( $cTot/$n2 + $alpha );
     

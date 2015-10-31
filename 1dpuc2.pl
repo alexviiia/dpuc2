@@ -4,7 +4,7 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.02';
+my $VERSION = '1.03';
 use Getopt::Long (); # Core perl package, should always be available!
 use lib '.';
 use Hmmer3ScanTab;
@@ -22,12 +22,15 @@ use strict;
 # - changed default scale parameter from 23 to 3, which is more sensible.
 # - added Getopt::Long, to set a whole bunch of params on command line
 
+# 2015-10-30 22:31:01 EDT - v1.03
+# - internally, alpha (pseudocount) is set directly rather than through scale or as logarithm. Here we change the parameter passing to abide to this change.
+
 # clean script name
 my ($scriptName) = $0 =~ /(\w+\.pl)$/;
 
 # parameters accessible as options
 my @cuts = ('1e-4'); # default p-value threshold for candidate domains
-my $scaleExp = 3; # new scale default, changed for version 2.03!
+my $alpha = 1e-2; # new scale default, changed for version 2.04!
 my ($fCut, $lCut) = qw(.50 40); # new permissive overlap params
 my $cCutNet = 2; # minimum count to filter in input dpucNet
 my $timeout = 1; # default lp_solve timeout in seconds
@@ -53,7 +56,7 @@ Options:
                        If multiple thresholds are provided, the output table has these 
                        thresholds inserted as text just before the file extension, creating 
                        separate outputs for each threshold.
-    --scale <x>        Scale parameter for context scores  [$scaleExp]
+    --alpha <x>        Pseudocount (sym-Dirichlet param) for context scores  [$alpha]
     --cutNet <x>       Keep context network counts >= cutNet  [$cCutNet]
     --fCut <x>         Permissive overlap max proportion  [$fCut]
     --lCut <x>         Permissive overlap max length in amino acids  [$lCut]
@@ -76,7 +79,7 @@ See the online manual for more info.
 # try to get parameters from command line
 Getopt::Long::GetOptions(
     'pvalues=f{1,}' => \@cuts,
-    'scale=f' => \$scaleExp,
+    'alpha=f' => \$alpha,
     'cutNet=f' => \$cCutNet,
     'fCut=f' => \$fCut,
     'lCut=f' => \$lCut,
@@ -112,7 +115,7 @@ if (@cuts > 1) {
 ParsePfam::dat($fiPfamADat); # populates $ParsePfam::acc2ds2ga and $ParsePfam::nestingNet
 my @accs = keys %$ParsePfam::acc2name; # this helps check that dpucNet and pfamDat agree (they won't if versions are different)
 # this wrapper choses the right file, given the parameters, and does all necessary processing
-my $net = Dpuc::loadNet(\@accs, $fiCounts, $scaleExp, $scaleContext, $shiftContext, $cCutNet);
+my $net = Dpuc::loadNet(\@accs, $fiCounts, $alpha, $scaleContext, $shiftContext, $cCutNet);
 # get necessary sequence thresholds
 my $acc2ts = Dpuc::getPfamThresholdsSeq($ParsePfam::acc2ds2ga);
 
