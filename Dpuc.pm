@@ -5,11 +5,12 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.04;
+our $VERSION = 2.05;
 use lib '.';
 use Domains;
 use DpucPosElim;
 use DpucLpSolve;
+#use DpucLpSolveOld; # needed for -old! Not included in public release.
 use DpucNetScores;
 use DpucOvsCompact;
 use EncodeIntPair;
@@ -23,6 +24,9 @@ use strict;
 # - same version (haven't posted): removed all self/trans distinction and parameter that controlled it. the code that handled negative self-context scores also went away.
 # 2015-10-30 22:04:07 EDT
 # v2.04 - major version bump (reflects change in DpucNetScores prior parametrization)
+# 2015-11-13 13:01:09 EST - v2.05
+# - a few days ago added score halving option (kept old versions so we don't break -old)
+# - today added additional options so sequence threshold gets moved to objective (and no actual separate thresholds are set!). Domain thresholds are set exactly, but sequence threshold is approximated.  The ratio of F=Td/Ts is used to consider when sequence thresholds are actually necessary (see global var below for threshold, which can be changed).
 
 # package constants
 my $scoreScale = 1000; # in posElim, we multiply context scores internally by this much, then turn into ints (so additions are faster), but we also have to keep this scale in mind when we combine context and HMM scores!  This loses some precision, but I think it's acceptable for the sake of speed, and also given the uncertainty involved in the actual calculation of context scores.
@@ -32,10 +36,12 @@ my $lpSolveDoSolve = 1; # skip solving if zero (can still get a lot of model sta
 my $timeoutDef = 1; # default is to give up with lp_solve after 10 seconds
 my $EcutDef = 1e-2; # in terms of p-values (new setup), the least stringent one we can use (most stringent HMMER3 filter) is 1e-2 with new filters
 our $doNewHitRefs = 1; # may edit this outside to change behavior as desired
+our $newHalving = 1; # new change so scores are internally counted differently (same sometimes, halved some other times), and fixes sequence thresholds
+our $cutTsd = 0.9; # decides if we don't use sequence threshold by thresholding F=Td/Ts
 
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-    
+
     my ($net, $acc2i, $netTs, $netTscores, $acc2cc) = DpucNetScores::loadNet($scoreScale, @_); # pass the same input here, plus this list of accs
     
     # copy perl structures into global and native C structures, should speed a few things up
@@ -154,22 +160,27 @@ sub preElim {
 	}
     }
 
+    # label domains that pass thresholds in the absence of context (this allows for shortcuts)
+    $newHalving ? labelGaDpuc($hits, $acc2ds2t, $acc2ts) : Domains::labelGa($hits, $acc2ds2t); # calculate whether this hit passes GA or not, needed for filterCC
+    
     # remove non-GA domains that are not "context-carrying" (domains that don't have positive context with anything, including themselves)
     # this filter is super quick and independent of E-value thresholds, and doesn't do anything when applied multiple times, so might as well put it out here
-    Domains::labelGa($hits, $acc2ds2t); # calculate whether this hit passes GA or not, needed for filterCC
     $hits = filterCC($hits, $acc2cc);
-    
-    # now permanently associate domain thresholds to domains, and store normalized score and acci too
-    # this modifies the hits outside dpuc() but by adding columns that no other script uses (doesn't modify standard columns!), so it should have no side-effects
-    foreach my $h (@$hits) {
-	my $td = $acc2ds2t->{$h->{acc}}{d}; # get domain threshold
-	$h->{td} = $td; # store threshold in hit as another column/key (needed by lp_solve unfortunately, when computing sequence threshold to un-normalize domain scores)
-	$h->{scoreNorm} = $h->{score} - $td; # compute and score normalized score too!
+
+    # this is done earlier in labelGaDpuc, so only have to do if it wasn't used (if $newHalving was false)
+    unless ($newHalving) {
+	# now permanently associate domain thresholds to domains, and store normalized score and acci too
+	# this modifies the hits outside dpuc() but by adding columns that no other script uses (doesn't modify standard columns!), so it should have no side-effects
+	foreach my $h (@$hits) {
+	    my $td = $acc2ds2t->{$h->{acc}}{d}; # get domain threshold
+	    $h->{td} = $td; # store threshold in hit as another column/key (needed by lp_solve unfortunately, when computing sequence threshold to un-normalize domain scores)
+	    $h->{scoreNorm} = $h->{score} - $td; # compute and score normalized score too!
+	}
     }
     
-    # determine which sequence thresholds need to be evaluated, to try to save time
+    # determine which sequence thresholds need to be evaluated, to try to save time (primarily a posElim shortcut; shouldn't be used in nonOvNeg)
     # this boolean depends only on which hits are GA (which are never eliminated by posElim) and which pfam thresholds are non-trivial.  Therefore, its results are valid for all Ecuts for a given protein
-    my ($hit2passSeq) = getPassSeq($hits, $acc2ts);
+    my $hit2passSeq = getPassSeq($hits, $acc2ts);
     
     # yey, done!
     return ($hits, $hit2passSeq);
@@ -332,7 +343,8 @@ sub strucLp {
     
     # not trivial, have to use lp_solve...
     # restructure and send to lp_solve via C binding, get answers!
-    my ($hitsPass, $info) = strucLpForC($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp);
+#    my ($hitsPass, $info) = DpucLpSolveOld::strucLpForC($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp); # old version can be accessed this way! unless $newHalving
+    my ($hitsPass, $info) = strucLpForC($hits, $scoresNet, $acc2ts, $timeout, $foLp);
     
     # write final context scores into domain objects (hashes), return!
     $hitsPass = wrapUp_nonOvNeg($hitsPass, $scoresNet);
@@ -353,7 +365,8 @@ sub getScoreManually {
 sub strucLpForC {
     # we want to write the objective function, but we get the edge-defining constraints and declarations trivially, so might as well get them
     # the scores net already excludes scores between overlapping domains, so we won't waste text writing that, and we won't define those edges that cannot be used!
-    my ($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp) = @_;
+    # 2015-11-21: NOTE this is new version, which assumes newHalving=1 throughout... old version was preserved in DpucLpSolveOld.pm
+    my ($hits, $scoresNet, $acc2ts, $timeout, $foLp) = @_;
     
     # not sure what Inline::C does if $foLp is undefined, better set it to an empty string
     $foLp = '' unless defined $foLp;
@@ -363,31 +376,26 @@ sub strucLpForC {
     
     # first we need to map domains to variable indexes (which otherwise have no distinctive names)
     # since we also declare edges and families as variables, we need an easy way of mapping to final indexes without a particularly clean structure in mind.  Let's textify variables in the old way and map to contiguous indexes via this hash
-    my %var2i; # $i is 1-based, like lp_solve
-    my @varNames = (); # list of names! reverse of %var2i
+    my @varNames = (); # list of names!
+    my @obj = (0); # old setup had this defined automatically by Si, but new setup aims to phase that out and set objective more directly!!! To avoid casting problems, let's define the first element as zero (lp_solve ignores it)
     # domain states Di are 1..$n, the only answers we're interested in
-    # domain scores Si are $n+1..2*$n, the indeces of the objective function, with coeffs of 1!
-    # store these numbers so we don't need to access hits directly anymore to get them
-    my @HiTis; # these are 0-based, not sent to lp_solve anyway, only used by perl
-    my @Tis;
     my %acc2is; # lastly, get all indexes per family (for sequence threshold)
     for (my $i = 0; $i < $n; $i++) {
-	$varNames[$i+1] = 'D'.$i; # add to map, 1-based
-	$varNames[$i+1+$n] = 'S'.$i; # ditto, but Si's are shifted from Di's by $n
+	$varNames[$i+1] = 'x'.$i; # add to map, 1-based
 	my $hi = $hits->[$i]; # get hit #i
-	push @HiTis, $hi->{scoreNorm}; # normalized score (Hi-Ti)
-	push @Tis, $hi->{td}; # domain threshold (Ti), needed separately for "sequence" threshold
+	# in new setup, let's populate the objective function
+	# using 1-based notation here, and storing objective non-sparsely!!!
+	$obj[$i+1] = $hi->{scoreNorm}; # normalized score (Hi-Ti)
 	# try to organize "sequence" threshold stuff
-	unless ($hit2passSeq->{$hi}) { # remember if this hit needs to be considered in the sequence threshold
-	    push @{$acc2is{$hi->{acc}}}, $i+1; # add to list of domains in family by index, 1-based
-	}
+	my $acc = $hi->{acc};
+	# add if $ts is there!
+	push @{$acc2is{$acc}}, $i+1 if $acc2ts->{$acc}; # add to list of domains in family by index, 1-based
     }
     
     # start indexes after Di's and Si's (for edges first down here, then families)
-    my $iNext = 2*$n+1; # remember last index not used yet, for growing list
+    my $iNext = $n+1; # remember last index not used yet, for growing list
     
     # now let's add edges that have scores (other edges aren't allowed by overlap, they won't be defined)
-    my %Cijs; # remember coefficients in terms of index of Eij, not messy hit references
     my @edgeDefs = (); # sparse edge definitions
     my @ovs = (); # sparse overlap list
     for (my $i = 0; $i < $n; $i++) {
@@ -398,14 +406,15 @@ sub strucLpForC {
 	    my $Cij = $scoresNetHere->{$hj};
 	    if (defined $Cij) {
 		# there's a score, so we need an edge variable
-		$var2i{'E'.$i.'_'.$j} = $iNext; # store map both ways (two names, one index)
-		$var2i{'E'.$j.'_'.$i} = $iNext;
-		$varNames[$iNext] = 'E'.$i.'_'.$j; # reverse of %var2i map
-		$Cijs{$iNext} = $Cij; # remember coefficient in terms of $iNext, only one way since $iNext can be obtained from $Eij map
+		$varNames[$iNext] = 'x'.$i.'_'.$j;
+		
 		# lastly, add an edge definition constraint, which is extremely sparse...
 		push @edgeDefs, [$i+1, $j+1, $iNext]; # indexes have to be 1-based, not 0-based as in map, but $iNext is already good!
-#		my @sparseRow = (1,1,-2); # always the same for all sparse rows, will set this in C directly
+		#		my @sparseRow = (1,1,-2); # always the same for all sparse rows, will set this in C directly
 		# constraint type and bounds are also set directly in C
+		# in new setup, we put scores in objective and nowhere else
+		# note no halving is needed here, since now we don't double-count things!!!
+		$obj[$iNext] = $Cij;
 		$iNext++; # increment for next round
 	    }
 	    # a missing score in the new setup is forcibly a disallowed overlap, write constraint
@@ -417,44 +426,18 @@ sub strucLpForC {
     # nothing to consider if overlaps have already been removed! (pass an empty array ref instead)
     my $ovsCompact = DpucOvsCompact::compactOvs(\@ovs);
     
-    # now we can "define" the Si's (domain scores) in terms of Di and Eij's
-    my @SiDefs = ();
-    for (my $i = 0; $i < $n; $i++) {
-	# start the "sparse array"
-	# add both the self score (index of Di), and -Si (coeff of -1)
-	my @colNo = ($i+1, $i+1+$n); # remember 1-based
-	my @sparseRow = ($HiTis[$i], -1); # normalized score (remember 0-based!), then -1
-	# move into pairs
-	for (my $j = 0; $j < $n; $j++) { # unlike objective function, here we go through all pairs! (even the ones before $i)
-	    next if $j == $i; # exclude self
-	    if (my $ij = $var2i{'E'.$i.'_'.$j}) { # get index of pair (works in both i-j orders), may be undefined (if i-j overlap)
-		push @colNo, $ij; # remember, already 1-based!
-		push @sparseRow, $Cijs{$ij}; # the context coefficient
-	    }
-	}
-	push @SiDefs, [\@colNo, \@sparseRow]; # store into bigger data structure
-    }
-    
     # lastly, define the "sequence" thresholds, each of which requires three statements
     my @seqDefs = (); # this is an unusual structure but it minimizes what we send to C while being complete
-    my @seqThreshs = (); # main threshold statements
     while (my ($acc, $is) = each %acc2is) {
 	$varNames[$iNext] = $acc; # assign latest index to this family
 	push @seqDefs, [$iNext, @$is]; # need family index and list of family members, we sort this out in C
-	# start sparse row for main threshold, set acc entry
-	my @colNo = ($iNext);
-	my @sparseRow = (-$acc2ts->{$acc}); # coefficient is -Ts, the sequence threshold
-	foreach my $i (@$is) { # navigate domains in family
-	    push @colNo, $i, $i+$n; # indexes for Di and Si, already 1-based!
-	    push @sparseRow, $Tis[$i-1], 1; # coeff of Di is Ti (positive, but index is 0-based, correct with -1), and for Si it's just 1
-	}
-	push @seqThreshs, [\@colNo, \@sparseRow]; # store into bigger data structure
+	$obj[$iNext] = -$acc2ts->{$acc}; # add threshold to objective, we don't need it anywhere else!!!
 	$iNext++; # increase for next round
     }
-    
+
     # done! time to send to C code! get answers!
-    no warnings 'uninitialized'; # fixes a complaint that the below function call has when @seqThreshs or @seqDefs are empty arrays.  The exact warning is "Use of uninitialized value in subroutine entry at Dpuc.pm line xxx."
-    my ($sol, $lpStatus, $lpTime, $numRows, $lpNonZeroes, $score, $lpNodesProc, $lpIter) = DpucLpSolve::sendToLpSolve($n, $iNext-1, \@edgeDefs, $ovsCompact, \@SiDefs, \@seqThreshs, \@seqDefs, $timeout, \@varNames, $lpSolveVerbose, $lpSolveDoSolve, $foLp);
+    no warnings 'uninitialized'; # fixes a complaint that the below function call has when @seqDefs are empty arrays.  The exact warning is "Use of uninitialized value in subroutine entry at Dpuc.pm line xxx."
+    my ($sol, $lpStatus, $lpTime, $numRows, $lpNonZeroes, $score, $lpNodesProc, $lpIter) = DpucLpSolve::sendToLpSolve($n, $iNext-1, \@obj, \@edgeDefs, $ovsCompact, \@seqDefs, $timeout, \@varNames, $lpSolveVerbose, $lpSolveDoSolve, $foLp);
     # we got things that make sense in C, but we can clean it up a bit for Perl...
     $lpStatus =~ s/ solution//; # this is a stupid string, remove this useless tail
     $lpStatus = 'TIMEOUT' if $lpStatus =~ /timeout/;
@@ -596,7 +579,7 @@ sub wrapUp_nonOvNeg {
 	my $contextScore = $hit2contextScore->{$h}; # may be undefined if sum was zero
 	my ($scoreDom, $acc) = @{$h}{qw(score acc)};
 	$acc2scoreHmmSeq{$acc} += $scoreDom;
-	$scoreDom += $contextScore if $contextScore;
+	$scoreDom += $contextScore/2 if $contextScore; # note here actual context scores (sum of edges) are shared between domains, so we count half toward each (so sum makes sense)
 	$hit2scoreDom{$h} = $scoreDom;
 	$acc2scoreSeq{$acc} += $scoreDom;
     }
@@ -644,8 +627,9 @@ sub elimMaxScore {
 	# decide whether a family needs a sequence score by looking at the passSeq boolean (family may pass automatically, so why bother with the sequence score)
 	next if $hit2passSeq->{$h};
 	# get all these quantities of the hit at the same time (is it faster?)
-	my ($score, $acc) = @{$h}{qw(score acc)}; # weird hash slice
-	$acc2scoreSeq{$acc} += $h->{score} + $hitk2contextScore->[$k]/$scoreScale; # Also need to reverse context score int scaling!
+###	my ($score, $acc) = @{$h}{qw(score acc)}; # weird hash slice ### old version
+	my ($score, $acc) = @{$h}{qw(scoreNorm acc)}; # weird hash slice ### $newHalving==1 version
+	$acc2scoreSeq{$acc} += $score + $hitk2contextScore->[$k]/$scoreScale; # Also need to reverse context score int scaling!
     }
     # now for each family that didn't pass automatically, remember if the sequence score passed this threshold or not.
     # this passing is true for all members of the family, so it makes sense to calculate it separately from the individual domain thresholds (this way we're factoring that calculation out!)
@@ -706,7 +690,7 @@ sub getPassSeq {
     foreach my $h (@$hits) {
 	$hit2passSeq{$h} = 1 if $acc2pass{$h->{acc}};
     }
-    return (\%hit2passSeq);
+    return \%hit2passSeq;
 }
 
 # the only reason we have a nonOvNeg version is that this takes the scoresNet that is a double hash, too painful to rewrite the rest of nonOvNeg to use the double array system that posElim uses.  This is used specifically for the wrapUp_nonOvNeg, and nothing else.
@@ -815,14 +799,72 @@ sub countGa {
 
 sub getPfamThresholdsSeq {
     # returns %acc2ts hash excluding the unnecessary thresholds!
+    # NOTE: new behavior ($newHalving==1) sets a filter on ratio of thresholds (to prevent using sequence thresholds that are actually very close to the domain thresholds, so they're practically redundant; omitting them is much more efficient), and stores the delta of thresholds (Ts-Td, which is what we actually have in the objective function; Ts by itself is never used anymore!)
     # input are the pfam GA thresholds
     my ($acc2ds2t) = @_;
     my %acc2ts;
     while (my ($acc, $ds2t) = each %$acc2ds2t) {
+	# get thresholds of interest (used more under new rules)
+	my $Ts = $ds2t->{s};
+	my $Td = $ds2t->{d};
 	# this sequence threshold has to be applied, since it's higher than the domain threshold (so it's not trivially satisfied)
-	$acc2ts{$acc} = $ds2t->{s} if $ds2t->{s} > $ds2t->{d};
+	if ($Ts > $Td) {
+	    if ($newHalving) {
+		# add *delta* of thresholds, and only if sequence threshold is sufficiently large relative to domain threshold
+		$acc2ts{$acc} = $Ts-$Td if $Td/$Ts < $cutTsd;
+	    } else {
+		$acc2ts{$acc} = $Ts; # always add these cases (old behavior)
+	    }
+	}
     }
     return \%acc2ts;
+}
+
+sub labelGaDpuc {
+    # 2015-11-13 14:09:58 EST
+    # like Domains::labelGa(), but here we use a modified sequence threshold that is more compatible with our new objective function... always sets domain thresholds (as regular GA), but sequence thresholds are different (in non-context experiments, this worked well)
+    # GA precomputes whether domains pass thresholds without context, so here we make that consistent with our change!
+    # 
+    # OLD description that still applies:
+    # creates the GA column to pre-compute if things pass the thresholds or not
+    # ignores overlaps from clans and modes
+    # order unchanged, hits modified by reference
+    my ($hits, $acc2ds2t, $acc2ts) = @_;
+    die "Fatal: labelGaDpuc() should only be used if newHalving is true!!!" unless $newHalving; # a sanity check
+    my %acc2scoreSeq; # increment these for non-trivial cases!
+    
+    # first look looks at domain thresholds and collects data for sequence threshold, set later
+    # integral to the new system are the normalized scores, so let's compute them here too!
+    foreach my $h (@$hits) {
+	my $acc = $h->{acc};
+	my $td = $acc2ds2t->{$acc}{d}; # get domain threshold
+	$h->{td} = $td; # store threshold in hit as another column/key (needed by lp_solve unfortunately, when computing sequence threshold to un-normalize domain scores, and for summaries of trivial cases)
+	$h->{scoreNorm} = $h->{score} - $td; # compute and score normalized score too!
+	# mark if domain threshold passed (always needed in the new setup)
+	$h->{GA} = $h->{scoreNorm} >= 0 ? 1 : 0; # passed threshold or not (boolean)
+	if ($acc2ts->{$acc}) { # only collect things when this threshold is defined
+	    # if there is a sequence threshold to look at, we need to collect the sum of normalized scores...
+	    $acc2scoreSeq{$acc} += $h->{scoreNorm};
+	}
+    }
+
+    # let's look at sequence threshold per family,
+    my %acc2passSeq; # booleans that say if family passed or not (really a set, since only values of 1 need to be stored)
+    while (my ($acc, $scoreSeq) = each %acc2scoreSeq) {
+	# the sum of scores needs to be compared to the difference Ts-Td (that's the approximation we derived)
+	$acc2passSeq{$acc} = 1 if $scoreSeq >= $acc2ts->{$acc};
+    }
+    
+    # navigate domains again, and relabel if it had passed domain threshold but not sequence...
+    foreach my $h (@$hits) {
+	next unless $h->{GA}; # only need to re-evaluate things that passed domain threshold
+	my $acc = $h->{acc};
+	next unless $acc2ts->{$acc}; # also only need to re-evaluate things that needed sequence thresholds
+	$h->{GA} = 0 unless $acc2passSeq{$acc}; # mark if sequence threshold wasn't passed! (stays 1 otherwise)
+    }
+
+    # this complicated labeling is finally complete!!!
+    # nothing to return, since hits were edited by reference
 }
 
 sub mergeHashes {

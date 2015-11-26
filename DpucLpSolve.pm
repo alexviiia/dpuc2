@@ -4,8 +4,15 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
+# 2015-11-13 13:01:09 EST - v1.01
+# - a few days ago added score halving option (kept old versions so we don't break -old)
+# - today added additional options so sequence threshold gets moved to objective (and no actual separate thresholds are set!). This only works if we set either domain or sequence thresholds (not both).  See Dpuc.pm for more info.
+# 2015-11-20 23:10:17 EST - still v1.01 (haven't posted)
+# - decided to fork old and new versions, to have cleaner code (and only include new one in release). This is "new" version.
+
+
 package DpucLpSolve;
-our $VERSION = 1.00;
+our $VERSION = 1.01;
 use strict;
 
 use Inline C => 'Config',
@@ -63,7 +70,7 @@ __C__
 #define STATIC static
 #define NORMAL PL_op->op_next
 
-void sendToLpSolve (int n, int numCols, AV* edgeDefs, AV* ovs, AV* SiDefs, AV* seqThreshs, AV* seqDefs, long timeout, AV* varNames, int verbose, int doSolve, char* foLp) {
+void sendToLpSolve (int n, int numCols, AV* obj, AV* edgeDefs, AV* ovs, AV* seqDefs, long timeout, AV* varNames, int verbose, int doSolve, char* foLp) {
   lprec *lp = NULL;
   int* colno = NULL; // define sparse rows this way
   REAL* row = NULL;
@@ -77,9 +84,8 @@ void sendToLpSolve (int n, int numCols, AV* edgeDefs, AV* ovs, AV* SiDefs, AV* s
   AV* sol = newAV(); // initialize solution as empty perl array
   
   // we need the number of constraints (ignoring objective function)
-  // SiDefs = n
   // seq stuff = 3*@seqDefs, actually it's more complicated now...
-  // edgeDefs are also 3 statements per edge
+  // edgeDefs are also 3 statements per edge (NOTE: not accurate, hasn't been for a while, see numRows)
   int numEdgeDefs = av_len(edgeDefs)+1;
   int numOvs = av_len(ovs)+1;
   int numSeqDefs = av_len(seqDefs)+1;
@@ -95,11 +101,11 @@ void sendToLpSolve (int n, int numCols, AV* edgeDefs, AV* ovs, AV* SiDefs, AV* s
   }
   
   // need length of input data to compute numRows...
-  int numRows = n + 3*numEdgeDefs + numOvs + 2*numSeqDefs + numSeqDefsStrong;
+  int numRows = 3*numEdgeDefs + numOvs + numSeqDefs + numSeqDefsStrong;
   
   // make colno/row large enough to fit an entire row
   colno = malloc(numCols * sizeof(int));
-  row = malloc(numCols * sizeof(REAL));
+  row = malloc( (numCols+1) * sizeof(REAL)); // objective has this length, so this is the actual max we encounter!
   // also create a new LP model
   lp = make_lp(numRows, numCols);
   // make sure we don't continue (except to cleanup) unless these structures were allocated correctly
@@ -115,52 +121,26 @@ void sendToLpSolve (int n, int numCols, AV* edgeDefs, AV* ovs, AV* SiDefs, AV* s
       }
     }
     
-    // set binary types for certain columns
-    // 1..n are Di's, all binary
-    for (i = 1; i <= n; i++) {
+    // set binary types for all columns
+    // must do this loop, can't just say they all are with a shorter statement :(
+    for (i = 1; i <= numCols; i++) {
       set_binary(lp, i, TRUE);
     }
-    // n+1..2n are Si's, NOT binary
-    // 2n+1 till end are Eij's and acc's, again all binary
-    for (i = 2*n+1; i <= numCols; i++) {
-      set_binary(lp, i, TRUE);
-    }
-    // note Si's default type and range are perfect
-    // in particular, Si >= 0 by default, which is the domain threshold we wish to enforce!  No need to write it out separately
   
     /* Model created */
     // this makes model building slightly faster
     set_add_rowmode(lp, TRUE);
   
     /* first! set the objective function */
-    for (i = 0; i < n; i++) { // there are n Si's
-      colno[i] = i+1+n; // the 1-based index of Si
-      row[i] = 1.0; // the coefficient is always 1
+    // input is ready, but as AV*, need to massage into REAL*. Put in row variable, which is reused often below...
+    for (i = 1; i <= numCols; i++) {
+      row[i] = (REAL)SvNV(* av_fetch(obj, i, 0));
     }
-    set_obj_fnex(lp, n, row, colno); // actually set objective function in *lp, only look at the first n entries of row/colno!
+    set_obj_fn(lp, row); // set objective from input, which was non-sparse and 1-based!
   
     /* now add the constraints */
     int offset = 1; // initial index offset is just +1 to be 1-based
   
-    // define Si's in terms of Di's and Eij's
-    for (i = 0; i < n; i++) {
-      // this weird thing gets a single definition, a perl array with two other arrays that define the sparse row
-      AV* SiDef = (AV*)SvRV(* av_fetch(SiDefs, i, 0));
-      AV* SiDefColno = (AV*)SvRV(* av_fetch(SiDef, 0, 0));
-      AV* SiDefRow = (AV*)SvRV(* av_fetch(SiDef, 1, 0));
-      // get length of sparse row to iterate over it
-      int numSiDef = av_len(SiDefColno)+1;
-      // transfer numbers from perl to C
-      for (j = 0; j < numSiDef; j++) {
-	colno[j] = (int)SvIV(* av_fetch(SiDefColno, j, 0));
-	row[j] = (REAL)SvNV(* av_fetch(SiDefRow, j, 0));
-      }
-      set_rowex(lp, offset+i, numSiDef, row, colno); // add constraint!
-      set_constr_type(lp, offset+i, EQ); // this is an "equal" constraint
-      set_rh(lp, offset+i, 0.0); // and it's equal to zero
-    }
-    offset += n; // now offset also includes the previously defined Si definitions
-    
     // do overlap constraints
     for (i = 0; i < numOvs; i++) {
       // this weird thing gets an "overlap", a perl array with two or more ints
@@ -210,25 +190,6 @@ void sendToLpSolve (int n, int numCols, AV* edgeDefs, AV* ovs, AV* SiDefs, AV* s
     }
     offset += numEdgeDefs; // now offset also includes the previously defined edge constraints
     
-    // now enforce sequence thresholds, code is very similar to above because colno/row are both fully precalculated
-    for (i = 0; i < numSeqDefs; i++) {
-      // this weird thing gets a single definition, a perl array with two other arrays that define the sparse row
-      AV* seqThresh = (AV*)SvRV(* av_fetch(seqThreshs, i, 0));
-      AV* seqThreshColno = (AV*)SvRV(* av_fetch(seqThresh, 0, 0));
-      AV* seqThreshRow = (AV*)SvRV(* av_fetch(seqThresh, 1, 0));
-      // get length of sparse row to iterate over it
-      int numSeqThresh = av_len(seqThreshColno)+1;
-      // transfer numbers from perl to C
-      for (j = 0; j < numSeqThresh; j++) {
-	colno[j] = (int)SvIV(* av_fetch(seqThreshColno, j, 0));
-	row[j] = (REAL)SvNV(* av_fetch(seqThreshRow, j, 0));
-      }
-      set_rowex(lp, offset+i, numSeqThresh, row, colno); // add constraint!
-      set_constr_type(lp, offset+i, GE); // this is an "greater or equal" constraint
-      set_rh(lp, offset+i, 0.0); // and it's >= zero
-    }
-    offset += numSeqDefs; // now offset also includes the previously defined sequence thresholds
-  
     // last things left are the sequence definitions (in terms of the Di's)
     // this portion sets all the strong constraints (numSeqDef-1 per seqDef)
     // the two coefficients are the same for these statements, only the indexes change
