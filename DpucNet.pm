@@ -5,12 +5,16 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucNet;
-our $VERSION = 2.01;
+our $VERSION = 2.02;
 
-# 2015-06-05 10:08:49 EDT
-# v2.01 - changed output so now list of nodes is also explicitly given as the first line (to catch version mismatches, which are otherwise catastrophic for performance by turning unobserved context pairs into negative context pairs)
-# 2015-07-04 17:04:50 EDT
-# v2.01 still (haven't published) - parsing proteins removes version number (i.e. .1 in BLAH.1). For Pfam 28 memory usage exploded so this extra step is warranted.
+# 2015-06-05 10:08:49 EDT - v2.01 
+# - changed output so now list of nodes is also explicitly given as the first line (to catch version mismatches, which are otherwise catastrophic for performance by turning unobserved context pairs into negative context pairs)
+# 2015-07-04 17:04:50 EDT - v2.01 still (haven't published)
+# - parsing proteins removes version number (i.e. .1 in BLAH.1). For Pfam 28 memory usage exploded so this extra step is warranted.
+# 2015-12-23 10:11:17 EST - v2.02
+# - Pfam 29 introduced changes that affect my "Pfam-A.full" parser.  The file I actually want to parse from this version onward is Pfam-A.full.uniprot, and the lines I have to parse are different (some annotations I used to rely on [#=GS ... AC ...] are not present in this file, but the data is present in another form [the subsequence alignment]).
+# - also added some sorting steps at output time, so the same input always generates the same output (previously, some things were ordered randomly, and it was a pain to compare outputs)
+
 
 use lib '.';
 use FileGz;
@@ -33,9 +37,11 @@ sub makeNet {
     my $fho = FileGz::getOutFh($fo, $comp);
     # first line is list of nodes!
     # note PF prefix has to be added back before printing
-    print $fho join("\t", map { 'PF'.$_ } @$accs)."\n";
+    print $fho join("\t", sort map { 'PF'.$_ } @$accs)."\n";
     # add network edges
-    while (my ($pair, $c) = each %$net) {
+#    while (my ($pair, $c) = each %$net) {
+    foreach my $pair (sort keys %$net) {
+	my $c = $net->{$pair};
 	print $fho "$pair\t$c\n";
     }
     close $fho;
@@ -64,8 +70,14 @@ sub getDomsPfamAFull {
 	    $acc = $1;
 	    push @accs, $acc; # add to list of unique accessions
 	}
-	elsif (/^\#=GS \w+\/(\d+)\-\d+ +AC (\w+)\.\d+/) { # start,prot # note "end" not needed for order
-	    $prot2hits{$2} .= $1.'-'.$acc.';'; # store as string, to reduce memory usage
+	# OLD version, doesn't work with Pfam 29's Pfam-A.full.uniprot
+#	elsif (/^\#=GS \w+\/(\d+)\-\d+ +AC (\w+)\.\d+/) { # start,prot # note "end" not needed for order
+#	    $prot2hits{$2} .= $1.'-'.$acc.';'; # store as string, to reduce memory usage
+	#	}
+	# NEW version, for Pfam 29's Pfam-A.full.uniprot and backward compatible with Pfam-A.full of older Pfams
+	# parsing is much more strict (prot IDs must be numbers or capital letters, rather than \w)
+	elsif (/^([A-Z0-9_]+)[^\/]*\/(\d+)\-\d+/) { # prot,start # note "end" not needed for order
+	    $prot2hits{$1} .= $2.'-'.$acc.';'; # store as string, to reduce memory usage
 	}
     }
     close $fhi;

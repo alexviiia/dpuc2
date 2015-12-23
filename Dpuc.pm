@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.05;
+our $VERSION = 2.06;
 use lib '.';
 use Domains;
 use DpucPosElim;
@@ -27,6 +27,8 @@ use strict;
 # 2015-11-13 13:01:09 EST - v2.05
 # - a few days ago added score halving option (kept old versions so we don't break -old)
 # - today added additional options so sequence threshold gets moved to objective (and no actual separate thresholds are set!). Domain thresholds are set exactly, but sequence threshold is approximated.  The ratio of F=Td/Ts is used to consider when sequence thresholds are actually necessary (see global var below for threshold, which can be changed).
+# 2015-12-23 16:10:57 EST - v2.06
+# - major version bump (reflects change in DpucNet parser)
 
 # package constants
 my $scoreScale = 1000; # in posElim, we multiply context scores internally by this much, then turn into ints (so additions are faster), but we also have to keep this scale in mind when we combine context and HMM scores!  This loses some precision, but I think it's acceptable for the sake of speed, and also given the uncertainty involved in the actual calculation of context scores.
