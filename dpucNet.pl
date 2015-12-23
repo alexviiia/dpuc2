@@ -4,7 +4,7 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.00';
+my $VERSION = '1.01';
 use lib '.';
 use DpucNet;
 use strict;
@@ -20,11 +20,11 @@ die "# $0 $VERSION - Extract the context count network from Pfam predictions
 # Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Usage: perl -w $0 <Pfam-A.full> <dpucNet output>
+Usage: perl -w $0 <Pfam-A.full.uniprot> <dpucNet output>
 
 The required inputs are
-    <Pfam-A.full>     Input \"full\" domain prediction file from Pfam.
-    <dpucNet output>  Directed context network of domain family pair counts.
+    <Pfam-A.full.uniprot>  Input \"full\" domain prediction file from Pfam.
+    <dpucNet output>       Directed context network of domain family pair counts.
 
 Input file may be compressed with gzip, and may be specified with or without the .gz 
 extension.  Output file will be automatically compressed with gzip.
