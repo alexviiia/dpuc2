@@ -4,7 +4,7 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.03';
+my $VERSION = '1.04';
 use Getopt::Long (); # Core perl package, should always be available!
 use lib '.';
 use Hmmer3ScanTab;
@@ -24,6 +24,10 @@ use strict;
 
 # 2015-10-30 22:31:01 EDT - v1.03
 # - internally, alpha (pseudocount) is set directly rather than through scale or as logarithm. Here we change the parameter passing to abide to this change.
+
+# 2016-06-28 19:28:39 EDT - v1.04
+# - fixed a "--pvalues" bug, where if we added "--pvalues 1e-2", the output was supposed to be (and now is) only for that threshold, but the bug added it to the default of 1e-4, resulting in two outputs (for 1e-2 and 1e-4).
+
 
 # clean script name
 my ($scriptName) = $0 =~ /(\w+\.pl)$/;
