@@ -29,7 +29,8 @@ use strict;
 my ($scriptName) = $0 =~ /(\w+\.pl)$/;
 
 # parameters accessible as options
-my @cuts = ('1e-4'); # default p-value threshold for candidate domains
+my $cutDef = '1e-4'; # default p-value threshold for candidate domains
+my @cuts = (); # list of p-value thresholds for candidate domains
 my $alpha = 1e-2; # new scale default, changed for version 2.04!
 my ($fCut, $lCut) = qw(.50 40); # new permissive overlap params
 my $cCutNet = 2; # minimum count to filter in input dpucNet
@@ -52,7 +53,7 @@ The required inputs are
                        each p-value thresholds, if more than one threshold is requested.
 
 Options:
-    --pvalues <x...>   The p-value thresholds for candidate domains  [$cuts[0]]
+    --pvalues <x...>   The p-value thresholds for candidate domains  [$cutDef]
                        If multiple thresholds are provided, the output table has these 
                        thresholds inserted as text just before the file extension, creating 
                        separate outputs for each threshold.
@@ -96,7 +97,11 @@ my $scaleContext; # default undefined (translates to no scaling, or 1)
 my $shiftContext; # default undefined (translates to no shifting, or 0)
 
 # pre-processing: make sure p-values are listed descending!!!
-@cuts = sort { $b <=> $a } @cuts;
+if (@cuts) {
+    @cuts = sort { $b <=> $a } @cuts;
+} else {
+    @cuts = ($cutDef); # use default threshold as sole threshold if none were specified!
+}
 
 # pre-processing: create output file paths for the case of multiple thresholds
 my @fos = ($fo0); # singleton case
