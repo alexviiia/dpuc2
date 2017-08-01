@@ -56,6 +56,14 @@ All scripts give detailed usage instructions when executed without arguments.  I
 Citation
 ===
 
-2011-03-31. Alejandro Ochoa, Manuel Llinás, and Mona Singh. Using context to improve protein domain identification. BMC Bioinformatics, 12:90. [Article](http://dx.doi.org/10.1186/1471-2105-12-90).
+2017-04-12.
+Alejandro Ochoa, Mona Singh.
+Domain prediction with probabilistic directional context.
+Bioinf 2017 btx221.
+[Article](http://dx.doi.org/10.1093/bioinformatics/btx221),
+[bioRxiv](http://biorxiv.org/content/early/2016/12/14/094284) 2016-12-14.
 
 2015-11-17. Alejandro Ochoa, John D Storey, Manuel Llinás, and Mona Singh. Beyond the E-value: stratified statistics for protein domain prediction. PLoS Comput Biol. 11 e1004509. [Article](http://dx.doi.org/10.1371/journal.pcbi.1004509), [arXiv](http://arxiv.org/abs/1409.6384) 2014-09-23.
+
+2011-03-31. Alejandro Ochoa, Manuel Llinás, and Mona Singh. Using context to improve protein domain identification. BMC Bioinformatics, 12:90. [Article](http://dx.doi.org/10.1186/1471-2105-12-90).
+
