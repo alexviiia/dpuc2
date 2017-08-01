@@ -50,7 +50,7 @@ perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt --pvalue
 More details
 ===
 
-All scripts give detailed usage instructions when executed without arguments.  I have more detailed recommendations, usage examples (code snippets and test sample inputs and outputs) at my personal website, viiia.org, in [English](http://viiia.org/dpuc2/?l=en-us) and [Spanish](http://viiia.org/dpuc2/).
+All scripts give detailed usage instructions when executed without arguments.  I have more detailed recommendations, usage examples (code snippets and test sample inputs and outputs) at my personal website, viiia.org, in [English](http://viiia.org/dpuc2/) and [Spanish](http://viiia.org/dpuc2/?l=es-mx).
 
 
 Citation
@@ -59,7 +59,7 @@ Citation
 2017-04-12.
 Alejandro Ochoa, Mona Singh.
 Domain prediction with probabilistic directional context.
-Bioinf 2017 btx221.
+Bioinf. 2017 btx221.
 [Article](http://dx.doi.org/10.1093/bioinformatics/btx221),
 [bioRxiv](http://biorxiv.org/content/early/2016/12/14/094284) 2016-12-14.
 
