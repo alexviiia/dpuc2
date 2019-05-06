@@ -9,15 +9,38 @@ If you were a dPUC 1.0 user, note that inputs and outputs are completely differe
 Lastly, there are improvements in the context network parametrization, most notably the addition of directed context. 
 See the release notes for more information.
 
+
 ## Installation
 
-You'll need Perl 5, the [Inline::C](http://search.cpan.org/~etj/Inline-C-0.62/lib/Inline/C.pod) Perl package, [HMMER3](http://hmmer.janelia.org/), the [lp_solve 5.5 library](http://lpsolve.sourceforge.net/5.5/) and `gzip` installed.
+You'll need Perl 5, the [Inline::C](http://search.cpan.org/~etj/Inline-C-0.62/lib/Inline/C.pod) Perl package, [HMMER3](http://hmmer.janelia.org/), the [lp_solve 5.5 library](http://lpsolve.sourceforge.net/5.5/) (more on this below) and `gzip` installed.
 
 For the HMM database, you will need to download `Pfam-A.hmm.gz` and `Pfam-A.hmm.dat.gz` from [Pfam](ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/). 
 Use HMMER3's hmmpress to prepare database for searching.
 
 Lastly, download a precomputed context network file that corresponds with the Pfam version you want to use, such as `dpucNet.pfam32.txt.gz`, from the [dpuc2-data](https://github.com/alexviiia/dpuc2-data) repository. 
 Code to recompute this file from Pfam is also provided (slow and uses lots of memory, not recommended).
+
+
+### Installing `lp_solve` library, troubleshooting
+
+DPUC2 contains code written in C that requires the `lp_solve` library headers to compile.
+In Fedora/RedHat Linux, this command (run as the root user or using `sudo`) installs the right package:
+```bash
+dnf install lpsolve-devel
+```
+In Debian Linux systems (including Ubuntu), the corresponding command is (again, as root):
+```bash
+apt-get install liblpsolve55-dev
+```
+I will update these instructions for more systems when details are confirmed.
+
+One last potential issue is that the path to the installed library is not in `$LD_LIBRARY_PATH` and does not match the hardcoded values in `DpucLpSolve.pm` (currently only `/usr/include/lpsolve`; will add `/usr/lib/lp_solve` if it is confirmed to work).
+In general, the required path contains `lp_lib.h` and other required files.
+
+If all else fails, search your machine for `lp_lib.h`, then edit `DpucLpSolve.pm` with a text editor to replace `/usr/include/lpsolve` with the directory that contains `lp_lib.h`.
+
+I would greatly appreciate it if you let me know of any troubles you encontered installing dPUC2 and its dependencies, and especially if and how you were able to solve them, so I can update these instructions.
+
 
 ## Examples
 
@@ -53,6 +76,7 @@ Produce dPUC predictions for more than one p-value threshold for candiate domain
 perl -w 1dpuc2.pl Pfam-A.hmm.dat dpucNet.txt sample.txt sample.dpuc.txt --pvalues 1e-1 1e-4 1e-9
 ```
 
+
 ## Sample files
 
 Sample input and output files are available under the `sample/` subdirectory:
@@ -60,6 +84,7 @@ Sample input and output files are available under the `sample/` subdirectory:
 - `sample.fa`: 10 random protein sequences from the *Plasmodium falciparum* proteome.
 - `sample.txt`: HMMER3/Pfam32 domain predictions using weak filters (produced by `0runHmmscan.pl` as above).
 - `sample.dpuc.txt`: Dpuc2 domain predictions using the previous sample as input (produced by `1dpuc2.pl` as in the first command above).
+
 
 ## More details
 
