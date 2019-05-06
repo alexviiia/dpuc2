@@ -1,4 +1,4 @@
-# dPUC 2
+# dPUC2: Domain Prediction Using Context
 
 The dPUC (Domain Prediction Using Context) software improves domain prediction by considering every domain in the context of other domains, rather than independently as standard approaches do. 
 Our framework maximized the probability of the data under an approximation, which reduces to a pairwise context problem, and we have shown that our probabilistic method is indeed more powerful than competing methods.
