@@ -1,0 +1,92 @@
+#                                                                            --- full sequence --- -------------- this domain -------------   hmm coord   ali coord   env coord
+# target name        accession   tlen query name           accession   qlen   E-value  score  bias   #  of  c-Evalue  i-Evalue  score  bias  from    to  from    to  from    to  acc description of target
+#------------------- ---------- ----- -------------------- ---------- ----- --------- ------ ----- --- --- --------- --------- ------ ----- ----- ----- ----- ----- ----- ----- ---- ---------------------
+C2                   PF00168.30   103 MAL8P1.134           -           1704   2.3e-39  120.2   0.8   1   5   3.6e-10   3.6e-10   26.4   0.7     2    90    11   105    10   118 0.80 C2 domain
+C2                   PF00168.30   103 MAL8P1.134           -           1704   2.3e-39  120.2   0.8   2   5     7e-08     7e-08   19.0   0.0     3    57   177   234   175   279 0.72 C2 domain
+C2                   PF00168.30   103 MAL8P1.134           -           1704   2.3e-39  120.2   0.8   3   5   3.5e-10   3.5e-10   26.4   0.0     7    91   670   761   666   773 0.77 C2 domain
+C2                   PF00168.30   103 MAL8P1.134           -           1704   2.3e-39  120.2   0.8   4   5   5.6e-08   5.6e-08   19.3   0.0     4    95  1333  1434  1330  1441 0.78 C2 domain
+C2                   PF00168.30   103 MAL8P1.134           -           1704   2.3e-39  120.2   0.8   5   5   1.4e-07   1.4e-07   18.0   0.0     3   102  1494  1599  1492  1600 0.82 C2 domain
+Ferlin_C             PF16165.5    154 MAL8P1.134           -           1704   1.9e-08   20.6   0.0   1   1   1.9e-08   1.9e-08   20.6   0.0    63   143  1616  1702  1587  1704 0.82 Ferlin C-terminus
+ATS                  PF15445.6    446 PFA0015c             -           1327  3.1e-194  632.5  39.3   1   1  3.1e-194  3.1e-194  632.5  39.3     2   446   895  1327   894  1327 0.95 acidic terminal segments, variant surface antigen of PfEMP1
+Duffy_binding        PF05424.11   182 PFA0015c             -           1327   7.5e-67  211.0  19.8   1   2     2e-45     2e-45  141.2   0.7     1   156   120   267   120   289 0.91 Duffy binding domain
+Duffy_binding        PF05424.11   182 PFA0015c             -           1327   7.5e-67  211.0  19.8   2   2   4.8e-25   4.8e-25   74.8   5.2     1   162   528   657   528   684 0.84 Duffy binding domain
+NTS                  PF15447.6     37 PFA0015c             -           1327   5.5e-14   38.8   0.2   1   1   5.5e-14   5.5e-14   38.8   0.2     1    37    14    48    14    48 0.98 N-terminal segments of PfEMP1
+ArsR                 PF09824.9    159 PFA0015c             -           1327   3.5e-05    9.6  15.0   1   1   2.8e-05   2.8e-05    9.9   1.0    68   143   756   832   743   842 0.86 ArsR transcriptional regulator
+IMCp                 PF12314.8     94 PF11_0431            -            504     6e-28   83.4  28.7   1   1     6e-28     6e-28   83.4  28.7     7    94    68   155    62   155 0.96 Inner membrane complex protein
+UBX                  PF00789.20    81 PF11_0431            -            504   5.1e-06   13.0   1.4   1   1   3.1e-05   3.1e-05   10.5   0.1    21    45   141   165   138   192 0.85 UBX domain
+D5_N                 PF08706.11   151 PF11_0431            -            504   1.7e-05   11.3   3.9   1   1   3.2e-05   3.2e-05   10.4   0.1    42   121   392   486   388   496 0.89 D5 N terminal like
+SWIB                 PF02201.18    74 PFF0560c             -            830   3.5e-15   42.0   0.3   1   1   3.5e-15   3.5e-15   42.0   0.3     3    74   262   329   261   329 0.94 SWIB/MDM2 domain
+DUF4854              PF16146.5    105 PFF0560c             -            830   4.5e-07   16.5   0.4   1   1   4.5e-07   4.5e-07   16.5   0.4    37    94   285   342   269   353 0.90 Domain of unknown function (DUF4854)
+DUF4025              PF13217.6     50 PFF0560c             -            830   5.1e-05    9.4   5.3   1   1   2.9e-05   2.9e-05   10.2   2.0     3    34   407   440   405   446 0.83 Protein of unknown function (DUF4025)
+RIFIN                PF02009.16   321 PFB0035c             -            375  9.9e-128  412.6   6.6   1   1  1.2e-127  1.2e-127  412.3   6.6     2   321    38   375    37   375 0.91 Rifin
+Stevor               PF17410.2    275 PFB0035c             -            375   1.4e-10   27.3  12.6   1   2   1.2e-05   1.2e-05   11.1   5.3     2    98    28   120    26   146 0.68 Subtelomeric Variable Open Reading frame
+Stevor               PF17410.2    275 PFB0035c             -            375   1.4e-10   27.3  12.6   2   2   2.2e-08   2.2e-08   20.0   0.7   216   268   314   366   270   373 0.64 Subtelomeric Variable Open Reading frame
+Orf78                PF06024.12   103 PFB0035c             -            375   2.8e-08   20.3   0.3   1   1   2.8e-08   2.8e-08   20.3   0.3    18   102   280   369   269   370 0.55 Orf78 (ac78)
+Saf_2TM              PF18303.1    152 PFB0035c             -            375     5e-08   18.9   1.0   1   1   9.7e-08   9.7e-08   17.9   1.0    46   101   314   368   302   372 0.74 SAVED-fused 2TM effector domain
+DUF443               PF04276.12   203 PFB0035c             -            375   7.4e-08   18.5   0.9   1   1   1.5e-07   1.5e-07   17.6   0.9    56   126   296   368   281   374 0.75 Protein of unknown function (DUF443)
+DUF1180              PF06679.12   169 PFB0035c             -            375   2.4e-07   17.5   0.6   1   1   6.1e-07   6.1e-07   16.2   0.2    60   134   293   369   268   373 0.57 Protein of unknown function (DUF1180)
+Adeno_E3_CR2         PF02439.15    38 PFB0035c             -            375     5e-07   15.7   5.4   1   1   1.4e-06   1.4e-06   14.3   5.4     6    37   331   364   328   366 0.66 Adenovirus E3 region protein CR2
+TMEM154              PF15102.6    142 PFB0035c             -            375   6.7e-07   15.5   1.9   1   1   1.1e-06   1.1e-06   14.8   0.6    64    91   338   365   288   372 0.75 TMEM154 protein family
+DUF2207              PF09972.9    492 PFB0035c             -            375   7.3e-07   14.3   6.3   1   1   5.9e-06   5.9e-06   11.3   6.3   304   441    71   366    26   372 0.70 Predicted membrane protein (DUF2207)
+EphA2_TM             PF14575.6     78 PFB0035c             -            375   1.8e-06   15.1   1.6   1   1   1.8e-06   1.8e-06   15.1   1.6     3    35   336   368   334   374 0.75 Ephrin type-A receptor 2 transmembrane domain
+PalH                 PF08733.10   330 PFB0035c             -            375   2.5e-06   12.7   0.0   1   1   4.1e-06   4.1e-06   12.1   0.0    56   100   314   363   247   373 0.72 PalH/RIM21
+PspB                 PF06667.12    73 PFB0035c             -            375   2.6e-06   13.8   1.4   1   1   6.5e-06   6.5e-06   12.5   1.4     6    34   338   366   334   371 0.80 Phage shock protein B
+LCIB_C_CA            PF18599.1    222 PFB0035c             -            375   3.1e-06   12.7   1.5   1   1   1.3e-05   1.3e-05   10.7   1.3   126   189    42   106    31   119 0.85 Limiting CO2-inducible proteins B/C beta carbonyic anhydrases
+Amnionless           PF14828.6    451 PFB0035c             -            375   3.6e-06   12.1   0.8   1   1   1.3e-05   1.3e-05   10.2   0.2   306   381   300   367   272   374 0.57 Amnionless
+DUF5130              PF17174.4    136 PFB0035c             -            375   3.8e-06   13.4   0.2   1   1   8.8e-06   8.8e-06   12.2   0.2    92   121   291   320   283   334 0.82 Domain of unknown function (DUF5130)
+BPD_transp_1         PF00528.22   185 PFB0035c             -            375   5.4e-06   12.4   0.2   1   1   1.2e-05   1.2e-05   11.2   0.2   138   184   319   364   299   365 0.82 Binding-protein-dependent transport system inner membrane component
+Glycophorin_A        PF01102.18   114 PFB0035c             -            375   5.7e-06   12.8   2.6   1   1     4e-05     4e-05   10.1   0.6    46    94   318   366   276   369 0.62 Glycophorin A
+RseC_MucC            PF04246.12   130 PFB0035c             -            375   6.6e-06   12.3   0.2   1   1   1.8e-05   1.8e-05   10.9   0.2    89   126   332   370   320   374 0.71 Positive regulator of sigma(E), RseC/MucC
+DUF3377              PF11857.8     72 PFB0035c             -            375   9.2e-06   11.9   0.1   1   1   2.2e-05   2.2e-05   10.7   0.1    27    56   332   361   314   371 0.80 Domain of unknown function (DUF3377)
+MRP-L27              PF09809.9    113 PFB0035c             -            375   1.2e-05   11.4   0.0   1   1   2.5e-05   2.5e-05   10.4   0.0    45   107    16    78    10    85 0.86 Mitochondrial ribosomal protein L27
+YajC                 PF02699.15    80 PFB0035c             -            375   1.3e-05   11.4   6.3   1   1   8.8e-06   8.8e-06   11.9   3.5     3    34   341   372   338   375 0.79 Preprotein translocase subunit
+DUP                  PF00674.18   103 PFB0035c             -            375   1.5e-05   11.4   1.7   1   1   3.1e-05   3.1e-05   10.4   0.7     6    45   336   375   331   375 0.79 DUP family
+Sigma_reg_N          PF13800.6     90 PFB0035c             -            375   2.2e-05   11.0   6.0   1   1   1.2e-05   1.2e-05   11.9   2.6    13    52   334   373   329   375 0.83 Sigma factor regulator N-terminal
+ETRAMP               PF09716.10    83 PFB0035c             -            375   2.3e-05   10.7   6.2   1   1     3e-05     3e-05   10.4   0.7     8    54     7   105     1   111 0.83 Malarial early transcribed membrane protein (ETRAMP)
+WSS_VP               PF12175.8    201 PFB0035c             -            375   2.8e-05    9.8   1.7   1   1   6.3e-05   6.3e-05    8.7   1.7     6    28   331   353   327   370 0.76 White spot syndrome virus structural envelope protein VP
+zinc_ribbon_2        PF13240.6     23 PFB0035c             -            375     3e-05   10.1   2.7   1   1   1.7e-05   1.7e-05   10.8   0.3     5    20   131   147   130   150 0.80 zinc-ribbon domain
+BatD                 PF13584.6    480 PFB0035c             -            375   3.1e-05    9.0   0.1   1   1   4.5e-05   4.5e-05    8.4   0.1   396   456   297   367   273   373 0.47 Oxygen tolerance
+DUF4381              PF14316.6    146 PFB0035c             -            375   4.6e-05    9.9   0.4   1   1     9e-05     9e-05    8.9   0.4    25    49   341   367   333   375 0.39 Domain of unknown function (DUF4381)
+Baculo_11_kDa        PF06143.11    84 PFB0035c             -            375   5.9e-05    8.9   7.8   1   1     9e-06     9e-06   11.6   2.1    41    75   336   370   333   375 0.79 Baculovirus 11 kDa family
+AbLIM_anchor         PF16182.5    375 PFB0035c             -            375   6.3e-05    9.0   1.5   1   1   9.3e-05   9.3e-05    8.4   1.5   201   275    38   111    20   140 0.64 Putative adherens-junction anchoring region of AbLIM
+DUF4083              PF13314.6     57 PFB0035c             -            375   9.2e-05    8.7   7.9   1   1   6.9e-05   6.9e-05    9.1   4.4     9    39   338   368   334   374 0.72 Domain of unknown function (DUF4083)
+AP2                  PF00847.20    54 PF11_0404            -           2653   4.1e-30   90.2  15.5   1   3   4.4e-21   4.4e-21   61.2   0.1     1    53   286   338   286   339 0.97 AP2 domain
+AP2                  PF00847.20    54 PF11_0404            -           2653   4.1e-30   90.2  15.5   2   3   3.3e-05   3.3e-05   10.4   0.0     7    51   384   428   383   430 0.83 AP2 domain
+AP2                  PF00847.20    54 PF11_0404            -           2653   4.1e-30   90.2  15.5   3   3   8.1e-08   8.1e-08   18.8   0.3     1    51  1829  1875  1829  1878 0.91 AP2 domain
+ACDC                 PF14733.6     91 PF11_0404            -           2653   4.4e-29   87.0   4.9   1   1   4.4e-29   4.4e-29   87.0   4.9     2    91  2542  2644  2541  2644 0.98 AP2-coincident C-terminal
+SHMT                 PF00464.19   399 PFL1720w             -            442  7.2e-159  514.6   0.0   1   1  8.5e-159  8.5e-159  514.4   0.0     1   398     7   393     7   394 0.99 Serine hydroxymethyltransferase
+Beta_elim_lyase      PF01212.21   293 PFL1720w             -            442   4.3e-06   12.3   0.0   1   1   4.2e-05   4.2e-05    9.0   0.0    46   279    89   355    60   365 0.68 Beta-eliminating lyase
+DpnII                PF04556.12   280 PFL1720w             -            442   1.8e-05   10.2   0.0   1   1     4e-05     4e-05    9.1   0.0   166   225   291   348   271   359 0.70 DpnII restriction endonuclease
+SAM_Ste50p           PF09235.10    75 PFL1720w             -            442   3.4e-05   10.4   0.1   1   1   9.2e-05   9.2e-05    9.0   0.1    22    46   323   347   313   362 0.84 Ste50p, sterile alpha motif
+Ala_racemase_N       PF01168.20   219 PFI0965w             -            242   1.9e-10   26.9   0.0   1   1   2.5e-10   2.5e-10   26.5   0.0     2   215     7   241     6   242 0.74 Alanine racemase, N-terminal domain
+DUF3015              PF11220.8    142 PFI0965w             -            242   1.7e-07   17.4   0.2   1   1   1.1e-05   1.1e-05   11.5   0.2    58   113   100   154    92   160 0.88 Protein of unknown function (DUF3015)
+Clusterin            PF01093.17   430 PFI0965w             -            242   8.3e-07   14.4   0.5   1   1   1.2e-06   1.2e-06   13.8   0.5   111   219     8   119     3   171 0.72 Clusterin
+PH_2                 PF08458.10   105 PFI0965w             -            242   4.5e-06   13.3   2.5   1   1   3.7e-06   3.7e-06   13.6   1.0    11    81    72   143    66   163 0.82 Plant pleckstrin homology-like region
+ESM4                 PF15952.5    176 PFI0965w             -            242     5e-06   13.2   3.1   1   1   6.8e-06   6.8e-06   12.8   3.1    29   109    84   169    46   209 0.78 Enhancer of split M4 family
+FliS_cochap          PF16522.5    148 PFI0965w             -            242   1.1e-05   11.6  10.3   1   1   4.4e-05   4.4e-05    9.7   4.6    40   111   126   194    97   213 0.72 Flagellar FLiS export co-chaperone, HP1076
+Lipase_GDSL          PF00657.22   200 PFI0965w             -            242   3.5e-05   10.0   2.1   1   1     3e-05     3e-05   10.2   0.6    49   116    12    78     2   130 0.79 GDSL-like Lipase/Acylhydrolase
+DUF4411              PF14367.6    162 PFI0965w             -            242   3.9e-05    9.8   1.4   1   1   5.8e-05   5.8e-05    9.2   0.2    26    87    98   160    76   168 0.87 Domain of unknown function (DUF4411)
+DUF1977              PF09320.11   105 PFI0965w             -            242     5e-05    9.8   2.1   1   1   9.4e-05   9.4e-05    9.0   0.2    24    72    45    93    27   134 0.81 Domain of unknown function (DUF1977)
+DUF2207              PF09972.9    492 PF11_0025            -            231   2.6e-08   19.1   4.1   1   1   3.8e-08   3.8e-08   18.5   4.1   310   434    47   205    19   222 0.44 Predicted membrane protein (DUF2207)
+Glyco_transf_8       PF01501.20   256 PF11_0025            -            231   5.9e-07   15.4   1.5   1   1   8.3e-07   8.3e-07   14.9   1.5    28    94    74   141     7   143 0.85 Glycosyl transferase family 8
+LMBR1                PF04791.16   510 PF11_0025            -            231   1.4e-06   13.5   3.5   1   1   1.8e-06   1.8e-06   13.2   3.5   259   412    65   199     3   214 0.67 LMBR1-like membrane protein
+Ureide_permease      PF07168.11   360 PF11_0025            -            231   1.8e-06   13.0   0.3   1   1   2.2e-06   2.2e-06   12.7   0.3   135   231    92   191    56   223 0.66 Ureide permease
+Peroxin-3            PF04882.12   470 PF11_0025            -            231     2e-06   13.1   0.1   1   1   2.3e-06   2.3e-06   12.9   0.1   106   189    61   169    16   177 0.55 Peroxin-3
+PigN                 PF04987.14   455 PF11_0025            -            231   3.9e-06   12.0   0.7   1   1   5.5e-06   5.5e-06   11.5   0.7    49   105   156   220   130   231 0.69 Phosphatidylinositolglycan class N (PIG-N)
+RFC1                 PF08519.12   157 PF11_0025            -            231   6.9e-06   12.5   4.0   1   1   5.8e-06   5.8e-06   12.7   2.3    79   145    50   118    32   130 0.68 Replication factor RFC1 C terminal domain
+Ribosomal_S19        PF00203.21    81 PF11_0025            -            231   8.5e-06   11.9   0.1   1   1   2.2e-05   2.2e-05   10.6   0.0    22    58   150   188   123   191 0.76 Ribosomal protein S19
+Sec62                PF03839.16   217 PF11_0025            -            231   9.8e-06   11.3   1.0   1   1   1.5e-05   1.5e-05   10.7   1.0    33   128    89   179    44   204 0.53 Translocation protein Sec62
+SRI                  PF08236.11    85 PF11_0025            -            231   2.7e-05   10.6   5.4   1   1   1.8e-05   1.8e-05   11.2   3.1    28    78    48   106    17   114 0.72 SRI (Set2 Rpb1 interacting) domain
+Pex26                PF07163.12   301 PF11_0025            -            231   2.9e-05    9.6   0.1   1   1   3.8e-05   3.8e-05    9.2   0.1   198   279   109   195    79   211 0.67 Pex26 protein
+DUF3043              PF11241.8    171 PF11_0025            -            231   5.1e-05    9.5   0.0   1   1   6.9e-05   6.9e-05    9.1   0.0    52   120   133   202    87   230 0.57 Protein of unknown function (DUF3043)
+ECSCR                PF15820.5    103 PF11_0025            -            231   8.8e-05    8.6   7.3   1   1   5.6e-06   5.6e-06   12.5   1.0    49    96    64   110    58   117 0.86 Endothelial cell-specific chemotaxis regulator
+#
+# Program:         hmmscan
+# Version:         3.2.1 (June 2018)
+# Pipeline mode:   SCAN
+# Query file:      /home/viiia/scripts/Dpuc2-sample/sample.fa.gz
+# Target file:     /home/viiia/dbs2/pfam/32/Pfam-A.hmm
+# Option settings: /home/viiia/bin/hmmer-3.2.1/src/hmmscan -o /dev/null --domtblout /home/viiia/scripts/Dpuc2-sample/sample.32.txt -E 0.0001 --domE 0.0001 --F1 0.1 --F2 0.1 --F3 0.0001 -Z 1 --domZ 1 /home/viiia/dbs2/pfam/32/Pfam-A.hmm /home/viiia/scripts/Dpuc2-sample/sample.fa.gz 
+# Current dir:     /home/viiia
+# Date:            Fri Mar  1 16:10:58 2019
+# [ok]
