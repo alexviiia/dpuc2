@@ -39,6 +39,16 @@ In general, the required path contains `lp_lib.h` and other required files.
 
 If all else fails, search your machine for `lp_lib.h`, then edit `DpucLpSolve.pm` with a text editor to replace `/usr/include/lpsolve` with the directory that contains `lp_lib.h`.
 
+Two dPUC2 users on Ubuntu Linux have reported problems linking to the `lp_solve` library.
+[This bug report](https://bugs.launchpad.net/ubuntu/+source/lp-solve/+bug/1169610) led one of them, Philipp Meister, to solve his problem after these steps (perhaps only a subset of these is necessary):
+
+- Adding `/usr/lib/lp_solve/` to the LD library path in `~/.bashrc`
+- Creating a soft link to the library using this command (as root):
+```bash
+ln -s /usr/lib/lp_solve/liblpsolve55.so /usr/lib/liblpsolve55.so 
+```
+- Creating a file in `/etc/ld.so.conf.d` called `lpsolve.conf` with the content: `/usr/lib/lp_solve`
+
 I would greatly appreciate it if you let me know of any troubles you encontered installing dPUC2 and its dependencies, and especially if and how you were able to solve them, so I can update these instructions.
 
 
