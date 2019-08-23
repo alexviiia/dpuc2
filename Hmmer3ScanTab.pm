@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Hmmer3ScanTab;
-our $VERSION = 1.03;
+our $VERSION = 1.04;
 use lib '.';
 use FileGz;
 use strict;
@@ -13,6 +13,8 @@ use strict;
 # version 1.03 2014-11-06 delta
 # - runHmmscan has new optional parameter pCut for final p-value threshold.  Default stays at 1e-4 for public code, but for benchmarks need it to be 1e-2 (for DSS paper), so now that option is available.  Old code should run just as before, although I haven't made any explicit tests!
 # - not published yet, just internal for now
+# 2016-09-08 - v1.04:
+# - added "single thread" option for timing purposes
 
 # Note: column where insertion happens is defined here!  A global constant!
 my $numColsDef = 23;
@@ -20,7 +22,8 @@ my $numColsDef = 23;
 # functions for parsing, editing, and printing HMMER3 domain tabular outputs from hmmscan
 
 sub runHmmscan { 
-    my ($hmmscan, $pfamA, $fiSeq, $fo, $pCut) = @_;
+    my ($hmmscan, $pfamA, $fiSeq, $fo, $pCut, $singleThread) = @_;
+    # 2016-09-08 NOTE: added boolean $singleThread (false by default) to time HMMER3 runs more predictably (default is to use as many threads as it wants/can?)
     
     # most interesting processing is treatment of heuristic filters (dPUC doesn't get enough with the defaults).  Below the defaults are shown for reference.  We should change them if we aim to be more permissive!
     #  --F1 <x> : MSV threshold: promote hits w/ P <= F1  [0.02]
@@ -36,7 +39,9 @@ sub runHmmscan {
     $fiSeq = FileGz::realFile($fiSeq); # input may be compressed but specified without .gz extension, this will make it work transparently!
     
     # actually run hmmscan
-    my @system = ($hmmscan, '--F1', $pCut2, '--F2', $pCut2, '--F3', $pCut, '-Z', 1, '--domZ', 1, '-E', $pCut, '--domE', $pCut, '-o', '/dev/null', '--domtblout', $fo, $pfamA, $fiSeq);
+    my @system = ($hmmscan, '--F1', $pCut2, '--F2', $pCut2, '--F3', $pCut, '-Z', 1, '--domZ', 1, '-E', $pCut, '--domE', $pCut, '-o', '/dev/null');
+    push @system, '--cpu', 0, if $singleThread; # add options as needed
+    push @system, '--domtblout', $fo, $pfamA, $fiSeq; # add final outputs (many of these must go after options or they don't work)
     print "Command running:\n> @system\n";
     my $ex = system @system;
     die "Error: the previous command returned $ex!\n" if $ex;
