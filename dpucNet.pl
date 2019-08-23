@@ -4,7 +4,7 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.01';
+my $VERSION = '1.02';
 use lib '.';
 use DpucNet;
 use strict;
@@ -15,7 +15,8 @@ my $verbose = 1;
 
 my ($fi, $fo) = @ARGV;
 
-die "# $0 $VERSION - Extract the context count network from Pfam predictions
+unless ($fo) {
+    print "# $0 $VERSION - Extract the context count network from Pfam predictions
 # dPUC ".(sprintf '%0.2f', $DpucNet::VERSION).", viiia.org/dpuc2
 # Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -30,7 +31,9 @@ Input file may be compressed with gzip, and may be specified with or without the
 extension.  Output file will be automatically compressed with gzip.
 
 See the online manual for more info.
-" unless $fo;
+";
+    exit 0;
+}
 
 # this does all the magic!
 DpucNet::makeNet($fi, $fo, $comp, $verbose);
