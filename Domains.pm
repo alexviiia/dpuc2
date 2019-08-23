@@ -5,8 +5,11 @@
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Domains;
-our $VERSION = 1.00;
+our $VERSION = 1.01;
 use strict;
+
+# 2016-11-21 22:48:39 EST - v1.01 (unpublished yet)
+# - removed suffix "*Aln" option for overlapBinarySearch code (nothing used it anymore, publically or otherwise)
 
 # general functions for my domain structure
 # I frequently use "Hits" instead of "Domains", just some old nomenclature from who-knows-where (Pfam or BLAST?)
@@ -192,22 +195,21 @@ sub overlapNetBinarySearch {
 
 sub overlapBinarySearchInit {
     # sorts the list the way we need it for queries, and also gets the hit2lowStart auxiliary array.  Doesn't alter the original array
-    my ($hits, $s) = @_;
-    $s = '' unless defined $s; # suffix, to use startAln and endAln instead ($s='Aln' in that case)
+    my ($hits) = @_;
     
     # at least once, it happened that a protein sent an empty hits array, but the initial $lowStart chokes on that!  Let's just return empty arrays instead of attempting to make things work
     my $numHits = scalar @$hits;
     return ([], []) unless $numHits;
     
     # the very first thing to do is to sort the hits by end first, then by start to break ties
-    my @hits = sort { $a->{'end'.$s} <=> $b->{'end'.$s} || $a->{'start'.$s} <=> $b->{'start'.$s} } @$hits;
+    my @hits = sort { $a->{end} <=> $b->{end} || $a->{start} <=> $b->{start} } @$hits;
     
     # now we create the array that tells us what is the lowest start position remaining relative to the current position
     my @hit2lowStart;
-    my $lowStart = $hits[$numHits-1]{'start'.$s}; # the last entry initializes this variable
+    my $lowStart = $hits[$numHits-1]{start}; # the last entry initializes this variable
     # navigate it backwards
     for (my $i = $numHits-1; $i >= 0; $i--) {
-	my $starti = $hits[$i]{'start'.$s}; # get this start
+	my $starti = $hits[$i]{start}; # get this start
 	$lowStart = $starti if $lowStart > $starti; # update the current lowest start
 	$hit2lowStart[$i] = $lowStart;
     }
@@ -229,11 +231,10 @@ sub overlapBinarySearch {
     #      2a. If the range if the current range is within the TestRange, add it to your result.
     # I realized I needed to edit the structure to add one more array, one that maps each position to the lowest start position remaining (can be built in O(n), not bad compared to sorting)
     
-    my ($hitQuery, $hits, $hit2lowStart, $lower, $upperIni, $fCut, $lCut, $s) = @_;
-    $s = '' unless defined $s; # suffix, to use startAln and endAln instead ($s='Aln' in that case)
+    my ($hitQuery, $hits, $hit2lowStart, $lower, $upperIni, $fCut, $lCut) = @_;
     # the query hit itself matters very little compared to just knowing the start and end, so we extract them now
-    my $startQuery = $hitQuery->{'start'.$s};
-    my $endQuery = $hitQuery->{'end'.$s};
+    my $startQuery = $hitQuery->{start};
+    my $endQuery = $hitQuery->{end};
     my $l1 = $endQuery-$startQuery; # might need it for permissive overlap thresholds.  Doesn't hurt to have it here even if we don't use it, it's a lot cheaper than the binary search
     
     # set these two default values
@@ -243,7 +244,7 @@ sub overlapBinarySearch {
     # @$hits are sorted by end first, so it's easy to check if any domains satisfy end > query.start by looking at the last one
     # if this isn't the case, then there's no matches!
     # use upperIni for this, most useful if that's defined
-    return [] if $hits->[$upperIni]{'end'.$s} <= $startQuery;
+    return [] if $hits->[$upperIni]{end} <= $startQuery;
     
     # from now on there's at least one domain with end > query.start, let's find the least such domain!
     # the first part is using a binary search to find the first range with end > query.start (this accounts for end-exclusive, the way we have it)
@@ -251,7 +252,7 @@ sub overlapBinarySearch {
     my $i; # index of probe
     while ($lower < $upper) {
 	$i = int(($lower + $upper)/2); # choose the index right at the middle of our range
-	my $end = $hits->[$i]{'end'.$s}; # get the current end (remember this is end-exclusive)
+	my $end = $hits->[$i]{end}; # get the current end (remember this is end-exclusive)
 	if ($end > $startQuery) { $upper = $i; } # this means we might have it, but we might need to look a bit lower
 	else { $lower = $i+1; } # we definitely need to look higher.  The +1 guarantees that rounding down won't get us stuck in infinite iterations, right?
     }
@@ -268,7 +269,7 @@ sub overlapBinarySearch {
     while ($lowStart < $endQuery) {
 	# this hit might be promising, but we need to check it too
 	my $hi = $hits->[$i];
-	my ($s2,$e2) = @{$hi}{'start'.$s, 'end'.$s};
+	my ($s2,$e2) = @{$hi}{qw(start end)};
 	if ($s2 < $endQuery) { # this hit was good, in strict overlap sense
 	    # but the story isn't over if we're using permissive overlap thresholds...
 	    # we reimplement overlap here with specific shortcuts so we save a bit more time that we might need
