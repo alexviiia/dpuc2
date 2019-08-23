@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Hmmer3ScanTab;
-our $VERSION = 1.04;
+our $VERSION = 1.05;
 use lib '.';
 use FileGz;
 use strict;
@@ -15,6 +15,8 @@ use strict;
 # - not published yet, just internal for now
 # 2016-09-08 - v1.04:
 # - added "single thread" option for timing purposes
+# 2019-08-23 15:39:13 EDT - v1.05
+# - added option to specify main output (for users wanting alignments)
 
 # Note: column where insertion happens is defined here!  A global constant!
 my $numColsDef = 23;
@@ -22,7 +24,7 @@ my $numColsDef = 23;
 # functions for parsing, editing, and printing HMMER3 domain tabular outputs from hmmscan
 
 sub runHmmscan { 
-    my ($hmmscan, $pfamA, $fiSeq, $fo, $pCut, $singleThread) = @_;
+    my ($hmmscan, $pfamA, $fiSeq, $fo, $pCut, $singleThread, $file_stdout) = @_;
     # 2016-09-08 NOTE: added boolean $singleThread (false by default) to time HMMER3 runs more predictably (default is to use as many threads as it wants/can?)
     
     # most interesting processing is treatment of heuristic filters (dPUC doesn't get enough with the defaults).  Below the defaults are shown for reference.  We should change them if we aim to be more permissive!
@@ -33,13 +35,14 @@ sub runHmmscan {
     # parameters
     $pCut = 1e-4 unless defined $pCut; # (F3) a separate analysis showed that this covers reasonable q-values and local FDRs with no problem.  Let's not compute and/or store more preds than needed!
     my $pCut2 = 1e-1; # F1 and F2 more permissive thresholds for HMMER3 heuristic filters
+    $file_stdout = '/dev/null' unless defined $file_stdout;
     
     # I won't validate input, the plan is just to let hmmscan complain
     
     $fiSeq = FileGz::realFile($fiSeq); # input may be compressed but specified without .gz extension, this will make it work transparently!
     
     # actually run hmmscan
-    my @system = ($hmmscan, '--F1', $pCut2, '--F2', $pCut2, '--F3', $pCut, '-Z', 1, '--domZ', 1, '-E', $pCut, '--domE', $pCut, '-o', '/dev/null');
+    my @system = ($hmmscan, '--F1', $pCut2, '--F2', $pCut2, '--F3', $pCut, '-Z', 1, '--domZ', 1, '-E', $pCut, '--domE', $pCut, '-o', $file_stdout);
     push @system, '--cpu', 0, if $singleThread; # add options as needed
     push @system, '--domtblout', $fo, $pfamA, $fiSeq; # add final outputs (many of these must go after options or they don't work)
     print "Command running:\n> @system\n";

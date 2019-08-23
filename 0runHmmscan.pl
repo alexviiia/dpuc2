@@ -4,13 +4,13 @@
 # DomStratStats and dPUC are distributed in the hope that they will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.02';
+my $VERSION = '1.03';
 use lib '.';
 use Hmmer3ScanTab;
 use strict;
 
 # get input, ask politely for it otherwise
-my ($hmmscan, $pfamA, $fiSeq, $fo) = @ARGV;
+my ($hmmscan, $pfamA, $fiSeq, $fo, $file_stdout) = @ARGV;
 
 unless ($fo) {
     print "# $0 $VERSION - Get domain predictions from your protein sequences
@@ -19,7 +19,7 @@ unless ($fo) {
 # Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Usage: perl -w $0 <hmmscan> <Pfam-A.hmm> <FASTA input> <output table>
+Usage: perl -w $0 <hmmscan> <Pfam-A.hmm> <FASTA input> <output table> [<file stdout>]
 
 The required inputs are
     <hmmscan>      the path to the HMMER3 hmmscan executable.
@@ -28,10 +28,17 @@ The required inputs are
     <output table> the hmmscan output is plain text table delimited by whitespace (always
                    uncompressed).
 
+The optional input is
+    <file stdout>  the file to which hmmscan's standard output goes (default /dev/null)
+
 See the online manual for more info.
 ";
     exit 0;
 }
 
+# these stay undefined (sets default behaviors)
+my $pCut;
+my $singleThread;
+
 # this sub does all the magic
-Hmmer3ScanTab::runHmmscan($hmmscan, $pfamA, $fiSeq, $fo);
+Hmmer3ScanTab::runHmmscan($hmmscan, $pfamA, $fiSeq, $fo, $pCut, $singleThread, $file_stdout);
