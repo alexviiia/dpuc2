@@ -4,7 +4,7 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.04';
+my $VERSION = '1.05';
 use Getopt::Long (); # Core perl package, should always be available!
 use lib '.';
 use Hmmer3ScanTab;
@@ -28,6 +28,9 @@ use strict;
 # 2016-06-28 19:28:39 EDT - v1.04
 # - fixed a "--pvalues" bug, where if we added "--pvalues 1e-2", the output was supposed to be (and now is) only for that threshold, but the bug added it to the default of 1e-4, resulting in two outputs (for 1e-2 and 1e-4).
 
+# 2019-08-23 14:21:34 EDT - v1.05
+# - changed exit code to zero when there are no arguments and only help message is printed (for simpler testing)
+# - reencoded script to use Unix newlines (used to have Windows newlines apparently)
 
 # clean script name
 my ($scriptName) = $0 =~ /(\w+\.pl)$/;
@@ -82,7 +85,7 @@ See the online manual for more info.
 ";
 
 # try to get parameters from command line
-Getopt::Long::GetOptions(
+my $opt_ret = Getopt::Long::GetOptions(
     'pvalues=f{1,}' => \@cuts,
     'alpha=f' => \$alpha,
     'cutNet=f' => \$cCutNet,
@@ -90,11 +93,18 @@ Getopt::Long::GetOptions(
     'lCut=f' => \$lCut,
     'timeout=f' => \$timeout,
     'noGzip' => sub { $comp = '' },
-    ) or die $usage;
+    );
+unless ($opt_ret) {
+    print $usage;
+    exit 0;
+}
 
 # this script accepts as input a hmmer3 hmmscan output file, and outputs a table file with the predictions that dpuc2 keeps with these parameters
 my ($fiPfamADat, $fiCounts, $fi, $fo0) = @ARGV;
-die $usage unless $fo0;
+unless ($fo0) {
+    print $usage;
+    exit 0;
+}
 
 # dpuc2 hardcoded parameters (untested, users shouldn't use them!)
 my $scaleContext; # default undefined (translates to no scaling, or 1)

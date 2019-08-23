@@ -4,7 +4,7 @@
 # DomStratStats and dPUC are distributed in the hope that they will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.01';
+my $VERSION = '1.02';
 use lib '.';
 use Hmmer3ScanTab;
 use strict;
@@ -12,7 +12,8 @@ use strict;
 # get input, ask politely for it otherwise
 my ($hmmscan, $pfamA, $fiSeq, $fo) = @ARGV;
 
-die "# $0 $VERSION - Get domain predictions from your protein sequences
+unless ($fo) {
+    print "# $0 $VERSION - Get domain predictions from your protein sequences
 # DomStratStats 1.xx, viiia.org/domStratStats
 # dPUC 2.xx, viiia.org/dpuc2
 # Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
@@ -28,7 +29,9 @@ The required inputs are
                    uncompressed).
 
 See the online manual for more info.
-" unless $fo;
+";
+    exit 0;
+}
 
 # this sub does all the magic
 Hmmer3ScanTab::runHmmscan($hmmscan, $pfamA, $fiSeq, $fo);
