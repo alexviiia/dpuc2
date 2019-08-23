@@ -5,7 +5,7 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package DpucNet;
-our $VERSION = 2.02;
+our $VERSION = 2.03;
 
 # 2015-06-05 10:08:49 EDT - v2.01 
 # - changed output so now list of nodes is also explicitly given as the first line (to catch version mismatches, which are otherwise catastrophic for performance by turning unobserved context pairs into negative context pairs)
@@ -14,6 +14,8 @@ our $VERSION = 2.02;
 # 2015-12-23 10:11:17 EST - v2.02
 # - Pfam 29 introduced changes that affect my "Pfam-A.full" parser.  The file I actually want to parse from this version onward is Pfam-A.full.uniprot, and the lines I have to parse are different (some annotations I used to rely on [#=GS ... AC ...] are not present in this file, but the data is present in another form [the subsequence alignment]).
 # - also added some sorting steps at output time, so the same input always generates the same output (previously, some things were ordered randomly, and it was a pain to compare outputs)
+# 2019-08-23 15:23:11 EDT - v2.03
+# - makeNet verbose now reports path of file being processed
 
 
 use lib '.';
@@ -27,7 +29,7 @@ sub makeNet {
     # a sub that puts all these parts together, to get output straight from input
     my ($fi, $fo, $comp, $verbose) = @_;
     
-    print "Parsing Pfam-A.full...\n" if $verbose;
+    print "Parsing Pfam-A.full ($fi)...\n" if $verbose;
     my ($prot2hits, $accs) = getDomsPfamAFull($fi);
     
     print "Extracting family pair counts from domains...\n" if $verbose;
