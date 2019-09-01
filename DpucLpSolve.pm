@@ -111,7 +111,7 @@ void sendToLpSolve (int n, int numCols, AV* obj, AV* edgeDefs, AV* ovs, AV* seqD
   // make sure we don't continue (except to cleanup) unless these structures were allocated correctly
   if ((colno == NULL) || (row == NULL) || (lp == NULL)) {
     fprintf(stderr, "Unable to create new LP model: Malloc error\n"); // warn user!
-    lpStatus = 'MALLOCFAIL'; // return value if we had problems
+    lpStatus = "MALLOCFAIL"; // return value if we had problems
   }
   else {
     if (verbose || (foLp != NULL && *foLp != '\0')) {
