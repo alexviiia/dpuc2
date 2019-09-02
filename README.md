@@ -12,45 +12,98 @@ See the release notes for more information.
 
 ## Installation
 
-You'll need Perl 5, the [Inline::C](http://search.cpan.org/~etj/Inline-C-0.62/lib/Inline/C.pod) Perl package, [HMMER3](http://hmmer.janelia.org/), the [lp_solve 5.5 library](http://lpsolve.sourceforge.net/5.5/) (more on this below) and `gzip` installed.
+### Dependencies
+
+DPUC2 contains code written in C that requires the `lp_solve` library headers to compile.
+dPUC2 requires:
+
+- Perl 5
+- `gzip`
+- The [Inline::C](http://search.cpan.org/~etj/Inline-C-0.62/lib/Inline/C.pod) Perl package
+- The [HMMER3](http://hmmer.janelia.org/) protein hidden Markov model software
+- The [lp_solve 5.5](http://lpsolve.sourceforge.net/5.5/) integer linear programming library
+- Git versioning control software (optional, to clone repository)
+
+Perl and gzip are part of practically all Linux distributions.
+Below are commands for installing the rest of these dependencies on two common Linux distributions: Fedora and Ubuntu.
+
+#### Fedora Linux
+
+On a terminal, type:
+```bash
+sudo dnf install perl-Inline-C lpsolve-devel hmmer git
+```
+This command should also work on Red Hat Linux too (untested).
+
+#### Ubuntu Linux
+
+On a terminal, type:
+```bash
+sudo apt install libinline-c-perl liblpsolve55-dev hmmer git
+sudo ln -s /usr/lib/lp_solve/liblpsolve55.so /usr/lib/liblpsolve55.so
+```
+This worked on Ubuntu 19.04.
+This command may also work on other Debian Linux systems (untested).
+
+If the above doesn't prevent an error about linking to the lp_solve library, other users reported these additional steps helping:
+
+- Adding `/usr/lib/lp_solve/` to the LD library path in `~/.bashrc`
+- Creating a file in `/etc/ld.so.conf.d` called `lpsolve.conf` with the content: `/usr/lib/lp_solve`
+
+Thank you to Philipp Meister for helping me figure out these Ubuntu instructions.
+
+#### Other systems
+
+Besides the above dependencies, dPUC2 has to be able to find `lp_lib.h`.
+`DpucLpSolve.pm` has a hardcoded path for `/usr/include/lpsolve`, which works for Fedora and Ubuntu.
+On other systems, you can run this command to make sure `lp_lib.h` is in the right place:
+```bash
+find / -name lp_lib.h
+```
+If the result includes `/usr/include/lpsolve/lp_lib.h`, then no changes to `DpucLpSolve.pm` are needed.
+Otherwise, open `DpucLpSolve.pm` with a text editor and replace `/usr/include/lpsolve` with the directory that contains `lp_lib.h`.
+
+Email me if you enconter any issues installing dPUC2 and its dependencies, especially if you were able to solve them, so I can update these instructions.
+
+
+### Cloning repository
+
+You can download a ZIP copy of this repository on GitHub.
+However, cloning the repository has many advantages.
+You can clone it with this command:
+```bash
+git clone https://github.com/alexviiia/dpuc2.git
+```
+If there are any updates in the future, you can simply update your copy of the repository by typing, inside the `dpuc2` directory:
+```bash
+git pull
+```
+
+### Pfam database
 
 For the HMM database, you will need to download `Pfam-A.hmm.gz` and `Pfam-A.hmm.dat.gz` from [Pfam](ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/). 
 Use HMMER3's hmmpress to prepare database for searching.
+A minimal set of commands is:
+```bash
+# download files
+wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.dat.gz
+# uncompress Pfam-A.hmm, while keeping compressed version around
+gunzip -k Pfam-A.hmm.gz
+# press the database
+hmmpress Pfam-A.hmm
+# remove temporary uncompressed copy (no longer needed)
+rm Pfam-A.hmm
+```
+
+### Precomputed dPUC2 context network file
 
 Lastly, download a precomputed context network file that corresponds with the Pfam version you want to use, such as `dpucNet.pfam32.txt.gz`, from the [dpuc2-data](https://github.com/alexviiia/dpuc2-data) repository. 
+A quick download command is (change the pfam version accordingly):
+```bash
+wget https://github.com/alexviiia/dpuc2-data/raw/master/dpucNet.pfam32.txt.gz
+```
 Code to recompute this file from Pfam is also provided (slow and uses lots of memory, not recommended).
-
-
-### Installing `lp_solve` library, troubleshooting
-
-DPUC2 contains code written in C that requires the `lp_solve` library headers to compile.
-In Fedora/RedHat Linux, this command (run as the root user or using `sudo`) installs the right package:
-```bash
-dnf install lpsolve-devel
-```
-In Debian Linux systems (including Ubuntu), the corresponding command is (again, as root):
-```bash
-apt-get install liblpsolve55-dev
-```
-I will update these instructions for more systems when details are confirmed.
-
-One last potential issue is that the path to the installed library is not in `$LD_LIBRARY_PATH` and does not match the hardcoded values in `DpucLpSolve.pm` (currently only `/usr/include/lpsolve`; will add `/usr/lib/lp_solve` if it is confirmed to work).
-In general, the required path contains `lp_lib.h` and other required files.
-
-If all else fails, search your machine for `lp_lib.h`, then edit `DpucLpSolve.pm` with a text editor to replace `/usr/include/lpsolve` with the directory that contains `lp_lib.h`.
-
-Two dPUC2 users on Ubuntu Linux have reported problems linking to the `lp_solve` library.
-[This bug report](https://bugs.launchpad.net/ubuntu/+source/lp-solve/+bug/1169610) led one of them, Philipp Meister, to solve his problem after these steps (perhaps only a subset of these is necessary):
-
-- Adding `/usr/lib/lp_solve/` to the LD library path in `~/.bashrc`
-- Creating a soft link to the library using this command (as root):
-```bash
-ln -s /usr/lib/lp_solve/liblpsolve55.so /usr/lib/liblpsolve55.so 
-```
-- Creating a file in `/etc/ld.so.conf.d` called `lpsolve.conf` with the content: `/usr/lib/lp_solve`
-
-I would greatly appreciate it if you let me know of any troubles you encontered installing dPUC2 and its dependencies, and especially if and how you were able to solve them, so I can update these instructions.
-
 
 ## Examples
 
