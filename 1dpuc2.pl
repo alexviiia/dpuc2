@@ -1,10 +1,10 @@
-# Copyright (C) 2014 Alejandro Ochoa, Singh Research Group, Princeton University
+# Copyright (C) 2014-2019 Alejandro Ochoa, Singh Research Group, Princeton University
 # This file is part of dPUC.
 # dPUC is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.05';
+my $VERSION = '1.06';
 use Getopt::Long (); # Core perl package, should always be available!
 use lib '.';
 use Hmmer3ScanTab;
@@ -32,6 +32,9 @@ use strict;
 # - changed exit code to zero when there are no arguments and only help message is printed (for simpler testing)
 # - reencoded script to use Unix newlines (used to have Windows newlines apparently)
 
+# 2019-09-09 19:09:11 EDT - v1.06
+# - changed official website from viiia.org to github.com
+
 # clean script name
 my ($scriptName) = $0 =~ /(\w+\.pl)$/;
 
@@ -45,7 +48,7 @@ my $timeout = 1; # default lp_solve timeout in seconds
 my $comp = 'gzip';
 
 my $usage = "# $scriptName $VERSION - Produce dPUC domain predictions from raw hmmscan data
-# dPUC ".(sprintf '%0.2f', $Dpuc::VERSION).", viiia.org/dpuc2
+# dPUC      ".(sprintf '%0.2f', $Dpuc::VERSION)." - https://github.com/alexviiia/dpuc2
 # Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -1,11 +1,11 @@
-# Copyright (C) 2014 Alejandro Ochoa, Singh Research Group, Princeton University
+# Copyright (C) 2014-2019 Alejandro Ochoa, Singh Research Group, Princeton University
 # This file is part of dPUC.
 # dPUC is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.06;
+our $VERSION = 2.07;
 use lib '.';
 use Domains;
 use DpucPosElim;
@@ -29,6 +29,9 @@ use strict;
 # - today added additional options so sequence threshold gets moved to objective (and no actual separate thresholds are set!). Domain thresholds are set exactly, but sequence threshold is approximated.  The ratio of F=Td/Ts is used to consider when sequence thresholds are actually necessary (see global var below for threshold, which can be changed).
 # 2015-12-23 16:10:57 EST - v2.06
 # - major version bump (reflects change in DpucNet parser)
+# 2019-09-09 19:11:36 EDT - v2.07
+# - changed official website from viiia.org to github.com
+
 
 # package constants
 my $scoreScale = 1000; # in posElim, we multiply context scores internally by this much, then turn into ints (so additions are faster), but we also have to keep this scale in mind when we combine context and HMM scores!  This loses some precision, but I think it's acceptable for the sake of speed, and also given the uncertainty involved in the actual calculation of context scores.
