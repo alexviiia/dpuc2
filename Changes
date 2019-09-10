@@ -1,0 +1,127 @@
+Revision history for dPUC2.
+
+1.00  2011-02-06
+
+ - Last change recorded on the original public source code.  See the dPUC 1.0 website (http://viiia.org/dPUC/) and our paper for more information.
+
+2.00b  2014-02-37
+
+ - I prepared this beta version for Juliana Bernardes, but until I posted it with the final version 2.00, I believe nobody else had seen this version, so it was not a public version.
+
+2.00  2014-09-18
+
+ - First public release of the second series of the code.
+ - Compared to 1.0, lots has changed.  In summary, the 2.xx series works with HMMER3/Pfam 24 (and newer), and it is very highly optimized to reduce runtime.  Importantly, the output format has changed (now it is simply like the HMMER3 domain tabular output files).
+ - Installation is easier now.
+   - The previous version had more dependencies, particularly more external Perl packages.  The previous version required the executable lp_solve, whereas the current version requires the lp_solve library instead (note some installers include one but not the other).  The new version requires the gzip executable to be available.
+   - The previous version included sample files with the source code, while the new version has source code separate from sample files (which are available on this web manual).
+   - The previous version required modifying a package, FilePaths.pm, to specify the paths of required Pfam and other files.  The new version does not require any such source code modification to work (unless the lp_solve library is in an unusual place, I believe that is the only exception).  All required files are now passed as arguments on the command line.
+ - Pipeline is simplified.
+   - The new version first runs HMMER3 on all proteins, then uses dPUC to filter those results as a separate step.  The previous version would take each protein, run HMMER2 on it for both old modes (ls and fs, which no longer exist), then parse that result and run dPUC on it.  The biggest disadvantage of the old way is I/O, the constant back and forth with writing very small files (single sequences) to disk for HMMER, parsing the output back in dPUC, and iterating.  Also, since HMMER3 is now multithreaded, while dPUC is not, it may make more sense to run HMMER3 separely, perhaps on different machines with more cores, for example.
+   - The previous version included the Standard Pfam and dPUC predictions in the same output.  The new version only shows dPUC.  The new output format is exactly the HMMER3 domain tabular format (the input is simply filtered by dPUC, without altering any of the original columns or adding information).  The previous version's output used to have more information, but it was hard to interpret, so it is currently ommited in favor of simplicity (this could change in the future).
+   - dPUC now has many hidden parameters that are not accessible on the command line.  The previous version allowed the selection of an E-value threshold for candidate domains, but the new script has the equivalent threshold hardcoded.  Again, this is in favor of simplicity.  All parameters can be modified by modifying the 1dpuc2.pl script.
+   - The previous version required parsing large Pfam files before the first run, or use the files provided with the distribution.  This is no longer required now that Pfam-A.hmm.dat exists (it wasn't available when dPUC 1.0 came out; Pfam-A.hmm.dat is so small now dPUC parses it at load time).
+   - There is no longer a daemon version of dPUC.  The previous version used it for my website to generate predictions, but that functionality is also no longer available on the website (dPUC2 is so much faster and easier to use, that I expect people to be happier running it in their own machines).
+ - Parametrization.  The current dpucNet.pl differs from the equivalent procedure from dPUC 1.0 (which was three separate scripts) in important ways.  These changes also affect how dPUC uses context scores for prediction.  The changes allow for greater flexibility but also lead to modest improvements in statistical power.
+   - Domain family pairs are now ordered, or in other words, the network is directed.  At load time, dPUC can treat the network as undirected with a score parameter that computes weighted averages of the counts of each direction (usage of this and other score parameters is currently not documented).  The default is to keep the network fully directed.
+   - The previous procedure would output bitscores instead of raw counts.  The new approach computes the bitscores when dPUC is loaded, it is very fast and provides the most flexibility since arbitrary scoring parameters can be tried immediately (instead of generating new network files for each parameter set).
+   - The counts are now of every domain family pair, rather than pairs counted only once per protein (so a protein with domain architecture A-A-B used to contribute a single A-B count, whereas now it contributes two A-B counts, in both cases also contributing an A-A count).
+   - The previous procedure applied an architecture count filter, whereas the new procedure outputs pair counts without any filters.  The new approach allows for filtering the context network by pair count at dPUC load time, again providing maximum flexibility.  We found that removing pair counts of 1 (the current default behavior) performs better than the previous architecture count filtering, presumably it removes more false positive context pairs per true positive context pair removed.  The difference can be understood conceptually for a domain family pair that is observed in one architecture that was only observed once, but which contains such a family pair multiple times (the previous approach would remove such a family pair, the new approach will keep it and treat it as having higher confidence depending on the count).
+   - Other aspects of the score parametrization have changed and/or have been extended.  For example, the prior count distribution may be more complex, the shape of the count and score distributions can be altered by exponentating, shifting, and scaling.  However, in my benchmarks I haven't found useful ways of wielding these parameters, so by default they are not used.  The default prior "pseudocount" is the same for every domain family pair, now fixed at 2^(-23) (about 1e-7) times the number of family pair counts observed (which is comparable to the prior of the previous version).  The new parametrization makes it clear that unobserved domain pairs will have a score of approximately -23 bits.
+   - To agree with my other project, DomStratStats, dPUC now assumes p-values, rather than E-values, are present in the input from HMMER3.  The default threshold for candidate domains is p <= 1e-4, which is comparable to the previous recommendation with the exception that now the threshold is independent of the size of the database used.
+ - Runtime performance.  In my benchmarks, dPUC2 is ~16x faster than its predecessor (excluding HMMER runtime, although it is itself reportedly 100x faster from version 2.3.2 to 3.0).
+   - The way dPUC interacts with lp_solve has been completely revamped.  The previous approach generated a text file for every protein and threshold, which was the input for the lp_solve executable, the output of which was parsed by dPUC and processed to become the final domain predictions.  Now dPUC and lp_solve interact more directly using the lp_solve C library.  The previous approach was expensive not just because of the I/O overhead, but also because each lp_solve run required starting a new process via a process fork, which is also more expensive than the newest solution.
+   - The dPUC constraints used for lp_solve were also optimized.  Although there are now more statements, they are stronger constraints that make it more likely that lp_solve will either find the exact integer solution when the continuous relaxation is solved, or it will converge more quickly to the integer solution at the branch-and-bound steps.
+   - dPUC now detects many trivial cases that do not need to be sent to lp_solve.  The most useful one is the case when, after the dPUC positive elimination, the domains that are left do not overlap and do not have negative context with each other, in which case they constitute the final solution (in the previous approach, they were sent to lp_solve anyway, which would solve the problem much more slowly, especially if too many domains are present).  Detecting trivial problems also scales much better than solving them with lp_solve (worst-case time complexities of O(m^2) versus O(2^m) for m domains).
+   - There are two hidden "pre-filter" options that nobody should used.  The idea was to speed up dPUC by removing overlaps in the input domains, either using p-value ranking or using one of my extensions of CODD (also using p-value ranking but additionally requiring strictly positive directed context between all predictions, always using the top-ranking domain as the only trusted domain).  Both forms make dPUC faster but lead to considerable loss of statistical power, the second version in particular is terrible.  I may remove these pre-filters completely in the future.
+ - Compared to the beta version, many packages were reorganized, in general for the better.  Also, I include code to generate the dPUC count network (the beta version simply provided the network for Pfam 24, and that network had strange filters that I have removed in this new public version).
+
+2.00  2015-07-04
+
+ - First commit and public version on GitHub.
+
+2.01  2015-07-23
+
+ - The most important change is the addition of domain family checks to ensure the correct version of Pfam is being used throughout.
+   - The previous versions simply checked for domain family pairs to be present in the context network (which was then simply a list of edges), and if the pair was missing, it was assigned a negative context score.  However, a pair of domains predicted with the newest Pfam might appear to have no context if an older context network file was used, which could lead to performance that is worse than not using context at all. The Pfam version mismatch is an error that wasn't caught by dPUC 2.00 or 2.00b, and which unfortunately produced output that appeared valid even though it wasn't.
+   - The new context network files (dpucNet.txt) have been changed to include a node list as the first line (the complete list of domain families for which context was measured). This list is first compared to the list of families present in the Pfam-A.hmm.dat used, and 1dpuc2.pl will die unless these sets are identical. As 1dpuc2.pl reads the input table from hmmscan (sample.txt in the examples), the domains are also ensured to be in the family list, or the software dies with a fatal message included in STDOUT as well as the output table. This way, a run will only be successful if Pfam-A.hmm.dat, dpucNet.txt, and sample.txt all have domain families consistent with each other.
+   - The context network (dpucNet.txt) files available on the website are in the new format for all Pfam versions starting with 23. The old versions are no longer available. You must use dPUC 2.01 or newer with the new files!
+ - The code was tested with Pfam 28, which was released on May 2015. All the samples provided now correspond to that version.  In testing, I found a bug in the Pfam-A.hmm.dat file, whose "nesting" associations between domains families were blank, and this caused my old Pfam-A.hmm.dat parser to complain to STDERR a lot. I adjusted my code so this does not happen anymore. Unfortunately, for the current Pfam 28 Pfam-A.hmm.dat, there is no domain family nesting information available for use, thought I contacted the Pfam team and this bug may be fixed in the future (and my code will work correctly when that happens).
+
+2.02  2015-07-27
+
+ - The main script now allows multiple p-value thresholds for candidate domains passed as an option on the command line.  The script used to have a single threshold hardcoded, and did not handle outputs for multiple thresholds.
+
+2.03  2015-09-04
+
+ - The main script now allows changing a multitude of options (most of which used to be hidden and hardcoded, only the p-value thresholds were exposed before).
+ - The default scale has been changed from 23 to 3.  Since the negative context score is approximately -scale, this means that now dPUC penalizes unobserved domain family pairs much less than it used to, allowing negative context to be overcome if there is sufficient positive context.  Our benchmarks found scale=3 to perform best for Pfam 25.
+ - Internally, the source code underwent a large cleaning, removing previously undocumented "experimental" features that didn't improve performance in my latest benchmarks.  The code that generates context scores from counts is now particularly transparent.
+
+2.04  2015-10-31
+
+ - The pseudocount, or "alpha" of the Dirichlet prior distribution for context scores is now parametrized directly, rather than through the log of a "scale" value (of total pseudocounts to total observed counts).  The default value for this pseudocount is 0.01, which is very close to the previous default for Pfam 25 (of 0.008, but the exact value varied depending on the Pfam version).  I recomputed all the samples using the new version, and found that they were all the same (for Pfam 28). So nothing really changed unless you were messing around with the '--scale' option, now you have to use '--alpha' instead and the numbers you put in are different.
+
+2.05  2015-11-26
+
+ - I made some changes to the objective function and constraints, which bring the dPUC model closer to the first-order Markov model of Coin, et al (2003).  In the objective, context scores are now half what they used to be (each edge is counted once rather than twice).  The objective now has new terms that approximate the sequence threshold.  Lastly, explicit domain and sequence score thresholds were removed (although there are equivalent implicit thresholds set by the objective function itself; this will be described in a forthcoming paper).  The resulting ILP is simpler and dPUC now runs a bit faster because of these changes, and the quality of predictions was practically unchanged.  The default pseudocount is now 1e-3 (had to get smaller because of the context score halving).
+
+2.06  2015-12-23
+
+ - Pfam 29 came out yesterday.  I reran the examples attached to this webpage using this newest Pfam as well as the newest HMMER (3.1b2).  Unfortunately, changes in Pfam broke my code that extracts the "context network" from Pfam-A.full.  For Pfam 29, the correct file to use as input is now Pfam-A.full.uniprot, and the parser had to change since some comments it used to rely on are not present in this input file.  Lastly, the output is now sorted internally (the first line, the node list, has sorted accessions; all subsequent lines are sorted relative to each other), so that when I change the code I may now verify more easily whether outputs changed or not.
+ - I verified that my new parser in DpucNet.pm generates the same output as the previous parser for Pfam 23-28 (up to sorting).  I replaced the old context networks I make available through this site with the sorted versions.
+ - There's one more problem with Pfam 29.  In previous Pfam versions, all accessions are present in Pfam-A.full.  However, in Pfam 29, 260 families present in Pfam-A.hmm and Pfam-A.hmm.dat are missing from Pfam-A.full and Pfam-A.full.uniprot!   My code relies on these two lists agreeing to ensure the same Pfam version was being used.  To get around it, I hacked the Pfam 29 context network file I've made available online; it has the accession list from Pfam-A.hmm.dat rather than the list observed in Pfam-A.full.uniprot.  Since the hack is simple but evil (because my sanity check shouldn't be avoided so easily on purpose), I have not made code publicly available that implements it.  I expect the following Pfam version to not require such a dirty hack.
+
+2.06  2016-06-28
+
+ - Fixed a "--pvalues" bug, where if we added "--pvalues 1e-2", the output was supposed to be (and now is) only for that threshold, but the bug added it to the default of 1e-4, resulting in two outputs (for 1e-2 and 1e-4).
+ - (Forgot to increase package version number).
+
+2.06  2016-08-10
+
+ - Retested for Pfam 30 (code unchanged).  I reran the examples using this newest Pfam.
+
+2.06  2016-12-14
+
+ - Preprint released! (code unchanged).  dPUC 2.06 was the version used in this preprint.
+
+2.06  2017-03-10
+
+ - Retested for Pfam 31 (code unchanged). I reran the examples using this newest Pfam.
+
+2.06  2017-08-01
+
+ - Added link to final paper to README
+
+2.06  2019-03-01
+
+ - Retested for Pfam 32 (code unchanged).  I reran the examples using this newest Pfam.
+
+2.06  2019-05-06
+
+ - Added sample files to repository.
+ - Added lpsolve troubleshooting instructions to README.
+
+2.06  2019-08-09
+
+ - Added to README Ubuntu troubleshooting instructions contributed by Philipp Meister
+
+2.06  2019-08-23
+
+ - Removed suffix option for coordinate keys in Domains.pm, which was always unused in public versions.
+ - Help/usage message of all scripts now return exit code 0 (success)
+ - makeNet verbose now reports path of file being processed
+ - Added "single thread" option for timing purposes.
+ - Added option to specify hmmscan main output (for users wanting alignments)
+ - (Yes, code version numbers were not updated).
+
+2.06  2019-08-31
+
+ - Fixed minor string quote issue in C code.
+ - In README, cleaned up installation instructions, adding explicit terminal commands as often as possible to simplify user experience.  Clarified instructions now that I was able to get it all to work on Ubuntu myself
+ - (Yes, code version numbers were not updated).
+
+2.07  2019-09-09
+
+ - Changed official website from viiia.org to github.com (hardcoded in help messages)
+ - Added this Perl-formatted changes log to GitHub repository (previously only on viiia.org), extended to record some post-GitHub activity that was previously missing.
