@@ -99,7 +99,7 @@ Revision history for dPUC2.
 
 2.06  2019-05-06
 
- - Added sample files to repository.
+ - Added sample files to GitHub repository.
  - Added lpsolve troubleshooting instructions to README.
 
 2.06  2019-08-09
@@ -125,3 +125,14 @@ Revision history for dPUC2.
 
  - Changed official website from viiia.org to github.com (hardcoded in help messages)
  - Added this Perl-formatted changes log to GitHub repository (previously only on viiia.org), extended to record some post-GitHub activity that was previously missing.
+
+2.08  2019-09-12
+
+ - README.md now contains the complete manual, which used to be on viiia.org (edited for brevity).
+   viiia.org version will be removed imminently.
+ - All scripts have more detailed help messages, to avoid having to go online for more info.
+   This info is replicated on README.
+ - Module EncodeIntPair was extended to have symmetric pairs that exclude diagonal, reverse maps, and tests; none are used by dPUC2 but could be useful beyond.
+ - Got rid of separate version numbers for every script.
+ - Got rid of author list printed on help message.
+ - Refactored and improved help message code.  Added FindBin dependency (Perl core module).

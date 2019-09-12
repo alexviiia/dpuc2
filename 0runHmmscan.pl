@@ -4,22 +4,37 @@
 # DomStratStats and dPUC are distributed in the hope that they will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with DomStratStats and dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.04';
+# core Perl modules
+use FindBin ();
+# local modules
 use lib '.';
 use Hmmer3ScanTab;
 use strict;
+
+# this hack is to announce the right package, without actually having to change the code...
+# if everything is missing, nothing is printed
+# if both are present, two lines are printed
+# so this handles all cases
+my $version_strings = '';
+# in each case add initial comment and final newline
+if (eval "use DomStratStats; 1") {
+    $version_strings .= '# ' . DomStratStats::version_string() . "\n";
+}
+if (eval "use Dpuc; 1") {
+    $version_strings .= '# ' . Dpuc::version_string() . "\n";
+    # this gets rid of an annoying warning that only happens in this setting
+    Inline->init();
+}
 
 # get input, ask politely for it otherwise
 my ($hmmscan, $pfamA, $fiSeq, $fo, $file_stdout) = @ARGV;
 
 unless ($fo) {
-    print "# $0 $VERSION - Get domain predictions from your protein sequences
-# DomStratStats  1.xx - https://github.com/alexviiia/DomStratStats
-# dPUC           2.xx - https://github.com/alexviiia/dpuc2
-# Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    print "# $FindBin::Script: Get domain predictions from your protein sequences
+$version_strings# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Usage: perl -w $0 <hmmscan> <Pfam-A.hmm> <FASTA input> <output table> [<file stdout>]
+Usage: perl -w $FindBin::Script <hmmscan> <Pfam-A.hmm> <FASTA input> <output table> \\
+         [<file stdout>]
 
 The required inputs are
     <hmmscan>      the path to the HMMER3 hmmscan executable.
@@ -29,9 +44,13 @@ The required inputs are
                    uncompressed).
 
 The optional input is
-    <file stdout>  the file to which hmmscan's standard output goes (default /dev/null)
+    <file stdout>  the file to which hmmscan's standard output goes, including alignments
+                   (default /dev/null)
 
-See the online manual for more info.
+This script changes hmmscan parameters that are important for dPUC and DomStratStats to
+work.  In particular, it forces outputs to report p-values in place of E-values, and it 
+relaxes the heuristic p-value filters to allow more predictions through.  This script sets 
+the most stringent p-value threshold at 1e-4.
 ";
     exit 0;
 }

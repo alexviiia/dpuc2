@@ -5,7 +5,14 @@
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
 package Dpuc;
-our $VERSION = 2.07;
+our $VERSION = '2.08';
+# for help messages
+our $website = 'https://github.com/alexviiia/dpuc2';
+
+sub version_string {
+    return "dPUC $VERSION - $website";
+}
+
 use lib '.';
 use Domains;
 use DpucPosElim;
@@ -15,23 +22,6 @@ use DpucNetScores;
 use DpucOvsCompact;
 use EncodeIntPair;
 use strict;
-
-# 2015-08-05 13:52:55 EDT
-# v2.03 - besides major version bump, removed explicit inputs to loadNet, which simply passes all to DpucNetScores::loadNet
-# 2015-08-12 21:15:10 EDT
-# - same version (haven't posted yet): removed removeOvsCodd and removeOvsPRank option!
-# 2015-08-14 11:24:16 EDT
-# - same version (haven't posted): removed all self/trans distinction and parameter that controlled it. the code that handled negative self-context scores also went away.
-# 2015-10-30 22:04:07 EDT
-# v2.04 - major version bump (reflects change in DpucNetScores prior parametrization)
-# 2015-11-13 13:01:09 EST - v2.05
-# - a few days ago added score halving option (kept old versions so we don't break -old)
-# - today added additional options so sequence threshold gets moved to objective (and no actual separate thresholds are set!). Domain thresholds are set exactly, but sequence threshold is approximated.  The ratio of F=Td/Ts is used to consider when sequence thresholds are actually necessary (see global var below for threshold, which can be changed).
-# 2015-12-23 16:10:57 EST - v2.06
-# - major version bump (reflects change in DpucNet parser)
-# 2019-09-09 19:11:36 EDT - v2.07
-# - changed official website from viiia.org to github.com
-
 
 # package constants
 my $scoreScale = 1000; # in posElim, we multiply context scores internally by this much, then turn into ints (so additions are faster), but we also have to keep this scale in mind when we combine context and HMM scores!  This loses some precision, but I think it's acceptable for the sake of speed, and also given the uncertainty involved in the actual calculation of context scores.
@@ -46,7 +36,7 @@ our $cutTsd = 0.9; # decides if we don't use sequence threshold by thresholding 
 
 sub loadNet {
     # this is a wrapper around the file that normally loads the net, includes the typical pre-processing that is necessary for posElim or nonOvNeg
-
+    
     my ($net, $acc2i, $netTs, $netTscores, $acc2cc) = DpucNetScores::loadNet($scoreScale, @_); # pass the same input here, plus this list of accs
     
     # copy perl structures into global and native C structures, should speed a few things up
@@ -104,7 +94,6 @@ sub dpuc {
     my @cut2hitsPosElim; # for debugging/random interest
     my @cut2info; # for debugging/random interest
     my $maxE; # used to determine when rerunning nonOvNeg (actually dPUC as whole) is necessary...
-    my $hitsRaw = $hits; # remember all input hits, for "dpucPlusRepeats" extension (not needed otherwise)
     my $hitsDpuc; # copy reference to previous solution when nonOvNeg is not redone
     
     # do pre-elimination step here, only once for all Ecuts, necessary for both posElim and nonOvNeg
@@ -348,8 +337,12 @@ sub strucLp {
     
     # not trivial, have to use lp_solve...
     # restructure and send to lp_solve via C binding, get answers!
-#    my ($hitsPass, $info) = DpucLpSolveOld::strucLpForC($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp); # old version can be accessed this way! unless $newHalving
-    my ($hitsPass, $info) = strucLpForC($hits, $scoresNet, $acc2ts, $timeout, $foLp);
+    my ($hitsPass, $info);
+#    if ($newHalving) { # new, faster version
+	($hitsPass, $info) = strucLpForC($hits, $scoresNet, $acc2ts, $timeout, $foLp);
+#    } else { # HACKS follow
+#	($hitsPass, $info) = DpucLpSolveOld::strucLpForC_OLD($hits, $scoresNet, $acc2ts, $hit2passSeq, $timeout, $foLp, $lpSolveVerbose, $lpSolveDoSolve); # old version can be accessed this way!
+#    }
     
     # write final context scores into domain objects (hashes), return!
     $hitsPass = wrapUp_nonOvNeg($hitsPass, $scoresNet);

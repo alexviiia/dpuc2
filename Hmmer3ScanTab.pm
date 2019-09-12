@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Alejandro Ochoa, Singh Research Group, Princeton University
+# Copyright (C) 2014-2019 Alejandro Ochoa, Singh Research Group, Princeton University
 # This file is part of DomStratStats and dPUC.
 # DomStratStats and dPUC are free software: you can redistribute them and/or modify them under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 # DomStratStats and dPUC are distributed in the hope that they will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
@@ -9,14 +9,6 @@ our $VERSION = 1.05;
 use lib '.';
 use FileGz;
 use strict;
-
-# version 1.03 2014-11-06 delta
-# - runHmmscan has new optional parameter pCut for final p-value threshold.  Default stays at 1e-4 for public code, but for benchmarks need it to be 1e-2 (for DSS paper), so now that option is available.  Old code should run just as before, although I haven't made any explicit tests!
-# - not published yet, just internal for now
-# 2016-09-08 - v1.04:
-# - added "single thread" option for timing purposes
-# 2019-08-23 15:39:13 EDT - v1.05
-# - added option to specify main output (for users wanting alignments)
 
 # Note: column where insertion happens is defined here!  A global constant!
 my $numColsDef = 23;

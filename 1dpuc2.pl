@@ -4,39 +4,15 @@
 # dPUC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with dPUC.  If not, see <http://www.gnu.org/licenses/>.
 
-my $VERSION = '1.06';
-use Getopt::Long (); # Core perl package, should always be available!
+# core Perl modules
+use Getopt::Long ();
+use FindBin ();
+# local modules
 use lib '.';
 use Hmmer3ScanTab;
 use Dpuc;
 use ParsePfam;
 use strict;
-
-# 2015-07-27 14:31:03 EDT - v1.01
-# - Now multiple p-value thresholds for candidate domains can be set as an option (on the command line).  The script used to have a single threshold hardcoded, and did not handle outputs for multiple thresholds.
-# - Removed comment about Pfam versions having to match (since now they are explicitly checked, user isn't trusted!)
-
-# 2015-08-12 21:18:19 EDT - v1.02
-# - removed removeOvsCodd and removeOvsPRank option
-# 2015-09-04 14:20:56 EDT - v1.02 still (not published yet)
-# - changed default scale parameter from 23 to 3, which is more sensible.
-# - added Getopt::Long, to set a whole bunch of params on command line
-
-# 2015-10-30 22:31:01 EDT - v1.03
-# - internally, alpha (pseudocount) is set directly rather than through scale or as logarithm. Here we change the parameter passing to abide to this change.
-
-# 2016-06-28 19:28:39 EDT - v1.04
-# - fixed a "--pvalues" bug, where if we added "--pvalues 1e-2", the output was supposed to be (and now is) only for that threshold, but the bug added it to the default of 1e-4, resulting in two outputs (for 1e-2 and 1e-4).
-
-# 2019-08-23 14:21:34 EDT - v1.05
-# - changed exit code to zero when there are no arguments and only help message is printed (for simpler testing)
-# - reencoded script to use Unix newlines (used to have Windows newlines apparently)
-
-# 2019-09-09 19:09:11 EDT - v1.06
-# - changed official website from viiia.org to github.com
-
-# clean script name
-my ($scriptName) = $0 =~ /(\w+\.pl)$/;
 
 # parameters accessible as options
 my $cutDef = '1e-4'; # default p-value threshold for candidate domains
@@ -47,12 +23,11 @@ my $cCutNet = 2; # minimum count to filter in input dpucNet
 my $timeout = 1; # default lp_solve timeout in seconds
 my $comp = 'gzip';
 
-my $usage = "# $scriptName $VERSION - Produce dPUC domain predictions from raw hmmscan data
-# dPUC      ".(sprintf '%0.2f', $Dpuc::VERSION)." - https://github.com/alexviiia/dpuc2
-# Alejandro Ochoa, John Storey, Manuel Llinás, and Mona Singh.
+my $usage = "# $FindBin::Script: Produce dPUC domain predictions from raw hmmscan data
+# " . Dpuc::version_string() . "
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Usage: perl -w $scriptName [-options] <Pfam-A.hmm.dat> <dpucNet> <input table> <output table>
+Usage: perl -w $FindBin::Script [-options] <Pfam-A.hmm.dat> <dpucNet> <input table> <output table>
 
 The required inputs are
     <Pfam-A.hmm.dat>   Pfam annotation file, contains GA thresholds and nesting network.
@@ -83,8 +58,6 @@ steps between thresholds.
 
 Input file may be compressed with gzip, and may be specified with or without the .gz 
 extension.  Output file will be automatically compressed with gzip unless --noGzip is used.
-
-See the online manual for more info.
 ";
 
 # try to get parameters from command line
