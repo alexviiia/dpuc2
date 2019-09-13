@@ -209,21 +209,6 @@ perl -w dpucNet.pl
 Usage: perl -w dpucNet.pl <Pfam-A.full.uniprot> <dpucNet output>
 
 The required inputs are
-    <Pfam-A.full.uniprot>  Input "full" domain prediction file from Pfam.
-    <dpucNet output>       Directed context network of domain family pair counts.
-
-Input file may be compressed with gzip, and may be specified with or without the .gz 
-extension.  Output file will be automatically compressed with gzip.
-
-See the online manual for more info.
-[viiia@labbyduke Dpuc2]$ perl -w dpucNet.pl 
-# dpucNet.pl: Extract the context count network from Pfam predictions
-# dPUC 2.08 - https://github.com/alexviiia/dpuc2
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-Usage: perl -w dpucNet.pl <Pfam-A.full.uniprot> <dpucNet output>
-
-The required inputs are
     <Pfam-A.full.uniprot>  Input "full" domain prediction file from Pfam (29-latest).
                            Use Pfam-A.full for Pfam 23-28.
     <dpucNet output>       Directed context network of domain family pair counts.
