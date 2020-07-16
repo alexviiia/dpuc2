@@ -132,10 +132,10 @@ rm Pfam-A.hmm
 
 ## Precomputed dPUC2 context network file
 
-Lastly, download a precomputed context network file that corresponds with the Pfam version you want to use, such as `dpucNet.pfam32.txt.gz`, from the [dpuc2-data](https://github.com/alexviiia/dpuc2-data) repository. 
+Lastly, download a precomputed context network file that corresponds with the Pfam version you want to use, such as `dpucNet.pfam33.1.txt.gz`, from the [dpuc2-data](https://github.com/alexviiia/dpuc2-data) repository. 
 A quick download command is (change the pfam version accordingly):
 ```bash
-wget https://github.com/alexviiia/dpuc2-data/raw/master/dpucNet.pfam32.txt.gz
+wget https://github.com/alexviiia/dpuc2-data/raw/master/dpucNet.pfam33.1.txt.gz
 ```
 Code to recompute this file from Pfam is also provided (slow and uses lots of memory, not recommended).
 
@@ -151,7 +151,7 @@ Sample input:
 
 Sample outputs:
 
-- [`sample/sample.txt`](sample/sample.txt): HMMER3/Pfam32 domain predictions using weak filters (produced by `0runHmmscan.pl` as below).
+- [`sample/sample.txt`](sample/sample.txt): HMMER3/Pfam33.1 domain predictions using weak filters (produced by `0runHmmscan.pl` as below).
 - [`sample/sample.dpuc.txt`](sample/sample.dpuc.txt): Dpuc2 domain predictions using the previous sample as input (produced by `1dpuc2.pl` as in the first command below).
 
 ## Synopsis of scripts
@@ -229,8 +229,8 @@ This script is provided for completeness and transparency.
 ```
 
 Let me further insist that, despite optimizations, this script consumes prohibitive amounts of memory (and time, to a lesser extent), so most regular users won't even be able to complete a run.
-First, downloading the input Pfam file `Pfam-A.full.uniprot.gz` takes a very long time (16 GB for Pfam 32).
-Then, for Pfam 32, 15G of memory are needed for the script to run.
+First, downloading the input Pfam file `Pfam-A.full.uniprot.gz` takes a very long time (24 GB for Pfam 33.1).
+Then, for Pfam 33.1, 24G of memory are needed for the script to run.
 
 The memory problems are due to Pfam-A.full.uniprot listing domains grouped by family, whereas these family pair counts can only be calculated after predictions are grouped by protein, so all the data must be in memory before it can be rearranged.
 
@@ -404,9 +404,9 @@ See [LICENSE](LICENSE).
 This code has been tested on
 
 - Perl 5.18, 5.20, 5.22, 5.28
-- HMMER 3.0, 3.1b1, 3.1b2, 3.2.1
-- Pfam 25, 27-32
-- Inline::C 0.53, 0.62, 0.78
+- HMMER 3.0, 3.1b1, 3.1b2, 3.2.1, 3.3
+- Pfam 25, 27-33.1
+- Inline::C 0.53, 0.62, 0.78, 0.80
 - lp_solve 5.5.2.0
 
 # Citations
